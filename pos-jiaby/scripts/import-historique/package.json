@@ -1,0 +1,13 @@
+{
+  "name": "import-historique-jiaby",
+  "private": true,
+  "type": "module",
+  "description": "Script d'import des données historiques JIABY (CSV → SQL)",
+  "scripts": {
+    "import": "npx tsx index.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.0.0"
+  }
+}
