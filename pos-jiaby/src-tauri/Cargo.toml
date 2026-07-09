@@ -5,6 +5,12 @@ description = "JIABY POS — Point de vente"
 authors = ["JIABY"]
 edition = "2021"
 
+[package.metadata]
+# Tauri metadata
+
+[package.metadata.tauri-winres]
+# Windows resource — icon sera fourni en production
+
 [lib]
 name = "pos_jiaby_lib"
 crate-type = ["lib", "cdylib", "staticlib"]

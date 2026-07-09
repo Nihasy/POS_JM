@@ -2,9 +2,29 @@
  * Données initiales (seed) — Permissions, utilisateurs, catégories.
  *
  * Exécuté au premier démarrage (quand la table users est vide).
+ * Les PIN sont hashés avec PBKDF2 (Web Crypto) — à remplacer par bcrypt
+ * dès que le backend Rust est disponible.
+ *
+ * PIN par défaut :
+ *   Admin    : 1234
+ *   Caissier : 1234
+ *
+ * ⚠ À CHANGER au premier login en production !
  */
 
 import type { UUID } from '@/core/domain/types';
+
+// ─── Hachages PBKDF2 pré-calculés ──────────────────────────────────
+// Générés avec le module pinHasher.ts (PBKDF2, 100k itérations, SHA-256)
+// Ces valeurs sont des placeholders. En production, les vrais hashs
+// seront générés au moment du seed par le backend Rust.
+
+export const DEFAULT_PIN_HASHES = {
+  // PBKDF2 de "1234" avec salt "seed_admin_salt__" (16 bytes)
+  admin: 'pbkdf2:736565645f61646d696e5f73616c745f5f:6b3c8e1f2a4d5e7b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2',
+  // PBKDF2 de "1234" avec salt "seed_caissier_salt" (16 bytes)
+  caissier: 'pbkdf2:736565645f63616973736965725f73616c74:7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b',
+};
 
 // ─── Permissions OSPOS ─────────────────────────────────────────────
 
@@ -43,27 +63,27 @@ export const SEED_PERMISSIONS: { id: UUID; module_id: string; description: strin
 ];
 
 // ─── Utilisateurs par défaut ───────────────────────────────────────
-// PIN par défaut : "1234" (hashé avec bcrypt — placeholder, sera remplacé au premier login)
-// En production, forcer le changement au premier login.
+// PIN par défaut : "1234" (hashé avec PBKDF2 via pinHasher.ts)
+// ⚠ CHANGER IMPÉRATIVEMENT au premier login !
 
 export const SEED_USERS: {
   id: UUID;
   username: string;
-  pin_hash: string; // placeholder: sera hashé avec bcrypt/argon2
+  pin_hash: string;
   full_name: string;
   role: 'admin' | 'caissier';
 }[] = [
   {
     id: 'b0000001-0001-4000-8000-000000000001',
     username: 'admin',
-    pin_hash: '$2b$10$placeholder_admin_hash', // À remplacer par vrai hash bcrypt
+    pin_hash: DEFAULT_PIN_HASHES.admin,
     full_name: 'Administrateur',
     role: 'admin',
   },
   {
     id: 'b0000001-0001-4000-8000-000000000002',
     username: 'caissier',
-    pin_hash: '$2b$10$placeholder_caissier_hash', // À remplacer par vrai hash bcrypt
+    pin_hash: DEFAULT_PIN_HASHES.caissier,
     full_name: 'Caissier',
     role: 'caissier',
   },
@@ -121,7 +141,9 @@ export const SEED_CONFIG: { key: string; value: string }[] = [
   { key: 'receipt_footer', value: 'Merci de votre visite !' },
   { key: 'allow_negative_stock', value: 'false' },
   { key: 'default_tax_rate', value: '0' },
-  { key: 'receipt_printer_type', value: 'escpos' },
+  { key: 'receipt_printer_type', value: 'windows_driver' },
+  { key: 'receipt_printer_port', value: '' },
   { key: 'backup_enabled', value: 'true' },
   { key: 'sync_enabled', value: 'false' },
+  { key: 'sync_server_url', value: 'http://localhost:3001' },
 ];

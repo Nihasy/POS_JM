@@ -11,3 +11,5 @@ export {
   ROLE_PERMISSIONS,
 } from './authService';
 export type { AuthResult, PermissionId, Role } from './authService';
+export { getPinHasher, setPinHasher, hashPin, verifyPin, validatePinFormat } from './pinHasher';
+export type { PinHasher } from './pinHasher';
