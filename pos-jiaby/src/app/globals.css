@@ -1,0 +1,160 @@
+@import 'tailwindcss';
+
+/* --- Design System Tokens — Atelier Électrique --- */
+@theme {
+  /* Fond général : gris-vert clair, anti-éblouissement */
+  --color-atelier: #F4F6F3;
+
+  /* Surfaces (cartes, ticket, modales) */
+  --color-carte: #FFFFFF;
+
+  /* Texte */
+  --color-encre: #15181B;
+  --color-encre-2: #5A6470;
+
+  /* Action principale (bleu « fil neutre ») */
+  --color-neutre: #1B4AC2;
+
+  /* États positifs, espèces, sync OK */
+  --color-especes: #177245;
+
+  /* Stock bas, hors-ligne, écarts */
+  --color-alerte: #B7791F;
+
+  /* Signature — liseré terre */
+  --color-terre-vert: #2E9E44;
+  --color-terre-jaune: #F2C218;
+
+  /* Polices */
+  --font-sans: 'Archivo', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+
+/* --- Polices locales (offline — pas de CDN) --- */
+@font-face {
+  font-family: 'Archivo';
+  src: url('/fonts/Archivo-VariableFont_wdth,wght.ttf') format('truetype-variations');
+  font-weight: 400 800;
+  font-stretch: 62% 125%;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Archivo';
+  src: url('/fonts/Archivo-Italic-VariableFont_wdth,wght.ttf') format('truetype-variations');
+  font-weight: 400 800;
+  font-stretch: 62% 125%;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/fonts/IBMPlexMono-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/fonts/IBMPlexMono-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* --- Base --- */
+html {
+  font-family: var(--font-sans);
+  background-color: var(--color-atelier);
+  color: var(--color-encre);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* --- Utilitaires de typographie --- */
+.montant {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.total-vente {
+  font-family: var(--font-mono);
+  font-size: 38px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Signature JIABY : liseré terre en haut --- */
+.liseré-terre {
+  border-top: 3px solid var(--color-terre-vert);
+  position: relative;
+}
+
+.liseré-terre::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: 0;
+  width: 50%;
+  height: 3px;
+  background: var(--color-terre-jaune);
+}
+
+/* --- Focus clavier visible --- */
+*:focus-visible {
+  outline: 2px solid var(--color-neutre);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* --- Cibles cliquables ≥ 44 px --- */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* --- Respecter les préférences de mouvement --- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* --- Barre de raccourcis en bas d'écran --- */
+.rail-raccourcis {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.5rem 1rem;
+  background: var(--color-carte);
+  border-top: 1px solid #E0E3DD;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+}
+
+/* --- Badge palier sur les lignes du ticket --- */
+.badge-palier {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+}
