@@ -446,11 +446,44 @@ export async function finalizeSaleTx(
       );
     }
 
+    // Payload complet : le serveur ingère la vente pour le dashboard
     await enqueueSyncEvent(tx, 'SALE', result.sale.id, {
-      sale_number: saleNumber,
-      total: result.sale.total,
-      is_quote: isQuote ? 1 : 0,
-      is_return: isReturn ? 1 : 0,
+      sale: {
+        id: result.sale.id,
+        sale_number: saleNumber,
+        customer_id: params.customerId,
+        user_id: params.userId,
+        status: result.sale.status,
+        subtotal: result.sale.subtotal,
+        discount_global_percent: result.sale.discountGlobalPercent,
+        discount_global_amount: result.sale.discountGlobalAmount,
+        total: result.sale.total,
+        is_quote: result.sale.isQuote,
+        is_return: result.sale.isReturn,
+        original_sale_id: result.sale.originalSaleId,
+      },
+      items: result.items.map((i) => ({
+        id: i.id,
+        sale_id: i.saleId,
+        item_id: i.itemId,
+        name_snapshot: i.nameSnapshot,
+        quantity: i.quantity,
+        catalog_price: i.catalogPrice,
+        applied_price: i.appliedPrice,
+        discount_percent: i.discountPercent,
+        discount_amount: i.discountAmount,
+        line_total: i.lineTotal,
+        cost_price_snapshot: i.costPriceSnapshot,
+        tier_applied: i.tierApplied,
+      })),
+      payments: result.payments.map((p) => ({
+        id: p.id,
+        sale_id: result.sale.id,
+        method: p.method,
+        amount: p.amount,
+        reference: p.reference,
+        change_given: p.changeGiven,
+      })),
     });
   });
 
@@ -994,6 +1027,7 @@ export async function runSync(db: Db): Promise<SyncRunResult> {
 
   const serverUrl = (await getConfig(db, 'sync_server_url')) ?? 'http://localhost:3001';
   const shopId = (await getConfig(db, 'shop_id')) ?? 'shop-01';
+  const token = await getConfig(db, 'sync_token');
   let pushed = 0;
 
   try {
@@ -1012,7 +1046,10 @@ export async function runSync(db: Db): Promise<SyncRunResult> {
 
       const response = await fetch(`${serverUrl}/sync/push`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ shop_id: shopId, events }),
       });
       if (!response.ok) {
