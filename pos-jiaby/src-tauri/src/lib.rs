@@ -1,5 +1,61 @@
+use serde_json::Value as JsonValue;
 use tauri::Manager;
-use tauri_plugin_sql::{Migration, MigrationKind};
+use tauri_plugin_sql::{DbInstances, DbPool, Migration, MigrationKind};
+
+/// Exécute un lot d'écritures dans UNE transaction SQLite, sur UNE seule
+/// connexion du pool (BEGIN → statements → COMMIT, rollback automatique).
+///
+/// Indispensable : le plugin SQL utilise un pool sqlx multi-connexions,
+/// donc des `BEGIN`/`COMMIT` envoyés via `execute()` depuis le JS peuvent
+/// atterrir sur des connexions différentes (→ « database is locked »,
+/// écritures hors transaction). Règle n°6 : tout ou rien.
+#[tauri::command]
+async fn execute_transaction(
+    app: tauri::AppHandle,
+    db: String,
+    statements: Vec<(String, Vec<JsonValue>)>,
+) -> Result<(), String> {
+    let instances = app.state::<DbInstances>();
+    let instances = instances.0.read().await;
+    let pool = instances
+        .get(&db)
+        .ok_or_else(|| format!("Base non chargée : {db}"))?;
+
+    #[allow(irrefutable_let_patterns)]
+    let DbPool::Sqlite(pool) = pool
+    else {
+        return Err("Transactions : SQLite uniquement".to_string());
+    };
+
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
+
+    // La connexion de la transaction attend son tour au lieu d'échouer
+    // immédiatement si un autre writer est actif.
+    sqlx::query("PRAGMA busy_timeout=5000")
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    for (sql, values) in statements {
+        let mut query = sqlx::query(&sql);
+        // Même convention de binding que tauri-plugin-sql (wrapper.rs)
+        for value in values {
+            if value.is_null() {
+                query = query.bind(None::<JsonValue>);
+            } else if value.is_string() {
+                query = query.bind(value.as_str().unwrap().to_owned());
+            } else if let Some(number) = value.as_number() {
+                query = query.bind(number.as_f64().unwrap_or_default());
+            } else {
+                query = query.bind(value);
+            }
+        }
+        query.execute(&mut *tx).await.map_err(|e| e.to_string())?;
+    }
+
+    tx.commit().await.map_err(|e| e.to_string())?;
+    Ok(())
+}
 
 /// Hache un PIN avec bcrypt (coût par défaut : 12).
 #[tauri::command]
@@ -79,7 +135,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             hash_pin,
             verify_pin,
-            prepare_backup_dir
+            prepare_backup_dir,
+            execute_transaction
         ])
         .run(tauri::generate_context!())
         .expect("Erreur au démarrage de JIABY POS");

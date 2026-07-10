@@ -2867,6 +2867,7 @@ dependencies = [
  "bcrypt",
  "serde",
  "serde_json",
+ "sqlx",
  "tauri",
  "tauri-build",
  "tauri-plugin-single-instance",

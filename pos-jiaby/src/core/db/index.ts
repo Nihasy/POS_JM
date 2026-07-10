@@ -62,14 +62,45 @@ export function setDb(db: Db | null): void {
 }
 
 /**
- * Helper : exécuter un callback dans une transaction SQLite.
- * BEGIN IMMEDIATE pour prendre le verrou d'écriture tout de suite ;
- * en cas d'erreur, rollback automatique — tout ou rien (règle n°6).
+ * Helper : exécuter un callback dans une transaction SQLite —
+ * tout ou rien (règle n°6).
+ *
+ * Sous Tauri, le plugin SQL s'appuie sur un pool sqlx multi-connexions :
+ * des BEGIN/COMMIT envoyés via execute() peuvent atterrir sur des
+ * connexions différentes (→ « database is locked », écritures hors
+ * transaction). Les écritures sont donc COLLECTÉES puis exécutées
+ * atomiquement côté Rust sur une seule connexion (execute_transaction).
+ * Les callbacks ne doivent faire AUCUN select : lire avant la transaction.
+ *
+ * Hors Tauri (sql.js, connexion unique), BEGIN IMMEDIATE classique.
  */
 export async function withTransaction<T>(
   db: Db,
   fn: (tx: Db) => Promise<T>
 ): Promise<T> {
+  if (isTauri() && db === _db) {
+    const statements: [string, unknown[]][] = [];
+    const collector: Db = {
+      execute: async (sql, params = []) => {
+        statements.push([sql, params]);
+      },
+      select: async () => {
+        throw new Error(
+          'SELECT interdit dans withTransaction() sous Tauri — lire les données avant la transaction.'
+        );
+      },
+    };
+    const result = await fn(collector);
+    if (statements.length > 0) {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('execute_transaction', {
+        db: 'sqlite:pos-jiaby.db',
+        statements,
+      });
+    }
+    return result;
+  }
+
   await db.execute('BEGIN IMMEDIATE');
   try {
     const result = await fn(db);
