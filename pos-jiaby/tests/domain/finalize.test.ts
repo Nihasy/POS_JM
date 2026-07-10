@@ -143,7 +143,7 @@ describe('prepareFinalize', () => {
     expect(result.errors).toHaveLength(0);
   });
 
-  it('S21: Devis (pas de mouvement de stock)', () => {
+  it('S23: Devis (pas de mouvement de stock)', () => {
     const result = prepareFinalize({
       cartLines: [makeLine()],
       payments: [],

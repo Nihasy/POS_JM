@@ -15,6 +15,7 @@
  */
 
 import type { UUID, PaymentMethod, CartLine, CartPayment } from './types';
+import { saleTotal } from './pricing';
 
 export interface FinalizeParams {
   cartLines: CartLine[];
@@ -25,6 +26,11 @@ export interface FinalizeParams {
   isQuote: boolean;
   isReturn: boolean;
   originalSaleId?: UUID | null;
+  /** PMP courant par article — FIGÉ dans la vente au moment de la finalisation (S07) */
+  costPrices?: Map<UUID, number>;
+  /** Remise globale (S14) — appliquée après les remises ligne */
+  discountGlobalPercent?: number | null;
+  discountGlobalAmount?: number | null;
 }
 
 export interface FinalizeResult {
@@ -83,8 +89,12 @@ export function prepareFinalize(params: FinalizeParams): FinalizeResult {
     errors.push('Le panier est vide.');
   }
 
-  // Vérifier le total des paiements
-  const total = params.cartLines.reduce((sum, line) => sum + line.lineTotal, 0);
+  // Total : Σ lignes → remise globale (S14, ordre de calcul contractuel)
+  const { subtotal, total } = saleTotal(
+    params.cartLines.map((l) => l.lineTotal),
+    params.discountGlobalPercent ?? null,
+    params.discountGlobalAmount ?? null
+  );
 
   if (total <= 0 && !params.isQuote) {
     errors.push('Le total de la vente doit être positif.');
@@ -132,7 +142,7 @@ export function prepareFinalize(params: FinalizeParams): FinalizeResult {
   // Générer les IDs
   const saleId = crypto.randomUUID();
 
-  // Construire les lignes
+  // Construire les lignes — cost_price FIGÉ au moment de la vente (S07)
   const items = params.cartLines.map((line) => ({
     id: crypto.randomUUID(),
     saleId,
@@ -144,7 +154,7 @@ export function prepareFinalize(params: FinalizeParams): FinalizeResult {
     discountPercent: line.discountPercent,
     discountAmount: line.discountAmount,
     lineTotal: line.lineTotal,
-    costPriceSnapshot: 0, // Sera renseigné depuis la DB (PMP au moment de la vente)
+    costPriceSnapshot: params.costPrices?.get(line.itemId) ?? 0,
     tierApplied: line.tierApplied,
   }));
 
@@ -157,17 +167,22 @@ export function prepareFinalize(params: FinalizeParams): FinalizeResult {
     changeGiven: p.method === 'ESPECES' ? changeGiven : null,
   }));
 
-  // Écritures de ledger (sorties de stock)
-  const ledgerEntries = params.cartLines
-    .filter((line) => !line.isKit) // Les kits n'ont pas d'écriture directe
-    .map((line) => ({
-      itemId: line.itemId,
-      quantity: -line.quantity, // Sortie = négatif
-      costPrice: null, // Sera renseigné depuis la DB
-    }));
+  // Écritures de ledger : sortie (négatif) pour une vente,
+  // retour en stock (positif) pour un retour (S26–S27).
+  // Un devis ne génère AUCUN mouvement de stock (S23).
+  const ledgerEntries = params.isQuote
+    ? []
+    : params.cartLines
+        .filter((line) => !line.isKit) // Les kits sont décomposés en composants par la couche service
+        .map((line) => ({
+          itemId: line.itemId,
+          quantity: params.isReturn ? line.quantity : -line.quantity,
+          costPrice: params.costPrices?.get(line.itemId) ?? null,
+        }));
 
   // Numéro de vente (sera généré par le repository avec un compteur)
-  const saleNumber = params.isQuote ? 'D-2026-XXXXX' : 'V-2026-XXXXX';
+  const prefix = params.isReturn ? 'R' : params.isQuote ? 'D' : 'V';
+  const saleNumber = `${prefix}-2026-XXXXX`;
 
   return {
     sale: {
@@ -176,9 +191,9 @@ export function prepareFinalize(params: FinalizeParams): FinalizeResult {
       customerId: params.customerId,
       userId: params.userId,
       status: params.isQuote ? 'SUSPENDED' : 'COMPLETED',
-      subtotal: total,
-      discountGlobalPercent: null,
-      discountGlobalAmount: null,
+      subtotal,
+      discountGlobalPercent: params.discountGlobalPercent ?? null,
+      discountGlobalAmount: params.discountGlobalAmount ?? null,
       total,
       isQuote: params.isQuote ? 1 : 0,
       isReturn: params.isReturn ? 1 : 0,
@@ -216,6 +231,95 @@ export function checkStock(
         itemId: line.itemId,
         name: line.name,
         requested: line.quantity,
+        available,
+      });
+    }
+  }
+
+  return shortages;
+}
+
+/**
+ * Prépare la suspension d'un panier (S21–S22).
+ * Statut SUSPENDED, AUCUN mouvement de stock, aucun paiement.
+ */
+export function prepareSuspend(
+  cartLines: CartLine[],
+  customerId: UUID | null,
+  userId: UUID
+): {
+  sale: {
+    id: UUID;
+    customerId: UUID | null;
+    userId: UUID;
+    status: 'SUSPENDED';
+    subtotal: number;
+    total: number;
+  };
+  items: FinalizeResult['items'];
+  ledgerEntries: [];
+  errors: string[];
+} {
+  const errors: string[] = [];
+  if (cartLines.length === 0) {
+    errors.push('Impossible de suspendre un panier vide.');
+  }
+
+  const total = cartLines.reduce((sum, line) => sum + line.lineTotal, 0);
+  const saleId = crypto.randomUUID();
+
+  return {
+    sale: {
+      id: saleId,
+      customerId,
+      userId,
+      status: 'SUSPENDED',
+      subtotal: total,
+      total,
+    },
+    items: cartLines.map((line) => ({
+      id: crypto.randomUUID(),
+      saleId,
+      itemId: line.itemId,
+      nameSnapshot: line.name,
+      quantity: line.quantity,
+      catalogPrice: line.unitPrice,
+      appliedPrice: line.appliedPrice,
+      discountPercent: line.discountPercent,
+      discountAmount: line.discountAmount,
+      lineTotal: line.lineTotal,
+      costPriceSnapshot: 0,
+      tierApplied: line.tierApplied,
+    })),
+    ledgerEntries: [],
+    errors,
+  };
+}
+
+/**
+ * Vérifie le stock des composants d'un kit (S24).
+ * Le kit est refusé si un composant manque.
+ *
+ * @param components - Composition du kit (composant + qté nécessaire par kit)
+ * @param kitQuantity - Nombre de kits demandés
+ * @param stockLevels - Map itemId → stock disponible
+ * @returns Liste des composants manquants (vide = kit vendable)
+ */
+export function checkKitStock(
+  components: { itemId: UUID; name: string; quantity: number }[],
+  kitQuantity: number,
+  stockLevels: Map<UUID, number>
+): { itemId: UUID; name: string; requested: number; available: number }[] {
+  const shortages: { itemId: UUID; name: string; requested: number; available: number }[] = [];
+
+  for (const comp of components) {
+    const needed = comp.quantity * kitQuantity;
+    const available = stockLevels.get(comp.itemId) ?? 0;
+    if (needed > available) {
+      shortages.push({
+        itemId: comp.itemId,
+        name: comp.name,
+        requested: needed,
         available,
       });
     }
