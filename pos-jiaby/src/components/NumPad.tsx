@@ -46,7 +46,7 @@ export function NumPad({
     ['7', '8', '9'],
     ['4', '5', '6'],
     ['1', '2', '3'],
-    [allowDecimal ? ',' : '0', '0', '⌫'],
+    [allowDecimal ? ',' : '', '0', '⌫'],
     ['C', '↵'],
   ];
 
@@ -64,9 +64,7 @@ export function NumPad({
             const isEnter = key === '↵';
             const isClear = key === 'C';
             const isBackspace = key === '⌫';
-            const isEmpty = key === '' && ri === 3 && ki === 0;
-
-            if (isEmpty) {
+            if (key === '') {
               return <div key={`empty-${ri}-${ki}`} />;
             }
 

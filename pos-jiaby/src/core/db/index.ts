@@ -14,13 +14,27 @@ export interface Db {
 
 let _db: Db | null = null;
 
+/** Détecte le runtime Tauri (backend Rust + plugin SQL disponibles). */
+export function isTauri(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+}
+
 /**
  * Ouvre la base SQLite en mode WAL.
  * À appeler au démarrage de l'application (les migrations Rust
  * sont exécutées automatiquement par le plugin au premier load).
+ *
+ * Hors Tauri (navigateur : dev, E2E), bascule sur une base sql.js
+ * en mémoire — voir browserDb.ts.
  */
 export async function openDatabase(): Promise<Db> {
   if (_db) return _db;
+
+  if (!isTauri()) {
+    const { openBrowserDatabase } = await import('./browserDb');
+    _db = await openBrowserDatabase();
+    return _db;
+  }
 
   const Database = (await import('@tauri-apps/plugin-sql')).default;
   const db = await Database.load('sqlite:pos-jiaby.db');

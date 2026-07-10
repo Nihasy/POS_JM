@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Pastille, Modal } from '@/components';
-import { openDatabase, backupDatabase, type Db } from '@/core/db';
+import { openDatabase, backupDatabase, isTauri, type Db } from '@/core/db';
 import { runSeed } from '@/core/db/seed';
+import { seedDemoData } from '@/core/db/demoData';
 import { useAuthStore } from '@/modules/auth/authStore';
 import { authenticate, hasPermission } from '@/modules/auth/authService';
 import { LoginScreen } from '@/modules/auth/LoginScreen';
@@ -99,6 +100,8 @@ export function App() {
       try {
         const database = await openDatabase();
         await runSeed(database);
+        // Mode navigateur (dev/E2E) : catalogue de démonstration
+        if (!isTauri()) await seedDemoData(database);
         setDb(database);
       } catch (e) {
         setBootError(
