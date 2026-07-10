@@ -13,18 +13,12 @@
  */
 
 import type { UUID } from '@/core/domain/types';
+import type { Db } from './index';
+import { withTransaction } from './index';
+import { hashPin } from '@/modules/auth/pinHasher';
 
-// ─── Hachages PBKDF2 pré-calculés ──────────────────────────────────
-// Générés avec le module pinHasher.ts (PBKDF2, 100k itérations, SHA-256)
-// Ces valeurs sont des placeholders. En production, les vrais hashs
-// seront générés au moment du seed par le backend Rust.
-
-export const DEFAULT_PIN_HASHES = {
-  // PBKDF2 de "1234" avec salt "seed_admin_salt__" (16 bytes)
-  admin: 'pbkdf2:736565645f61646d696e5f73616c745f5f:6b3c8e1f2a4d5e7b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2',
-  // PBKDF2 de "1234" avec salt "seed_caissier_salt" (16 bytes)
-  caissier: 'pbkdf2:736565645f63616973736965725f73616c74:7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b',
-};
+/** PIN par défaut des comptes seed — à changer au premier login. */
+export const DEFAULT_PIN = '1234';
 
 // ─── Permissions OSPOS ─────────────────────────────────────────────
 
@@ -69,21 +63,18 @@ export const SEED_PERMISSIONS: { id: UUID; module_id: string; description: strin
 export const SEED_USERS: {
   id: UUID;
   username: string;
-  pin_hash: string;
   full_name: string;
   role: 'admin' | 'caissier';
 }[] = [
   {
     id: 'b0000001-0001-4000-8000-000000000001',
     username: 'admin',
-    pin_hash: DEFAULT_PIN_HASHES.admin,
     full_name: 'Administrateur',
     role: 'admin',
   },
   {
     id: 'b0000001-0001-4000-8000-000000000002',
     username: 'caissier',
-    pin_hash: DEFAULT_PIN_HASHES.caissier,
     full_name: 'Caissier',
     role: 'caissier',
   },
@@ -131,6 +122,61 @@ export const SEED_CATEGORIES: { id: UUID; name: string; parent_id: null; sort_or
 ];
 
 // ─── Configuration par défaut ──────────────────────────────────────
+
+/**
+ * Exécute le seed au premier démarrage (table users vide).
+ * Les PIN par défaut sont hachés au moment de l'insertion
+ * (bcrypt via Rust en prod, PBKDF2 Web Crypto en dev).
+ */
+export async function runSeed(db: Db): Promise<void> {
+  const rows = await db.select<{ cnt: number }>('SELECT COUNT(*) as cnt FROM users');
+  if ((rows[0]?.cnt ?? 0) > 0) return;
+
+  // Hacher les PIN AVANT la transaction (opération lente)
+  const pinHashes = new Map<UUID, string>();
+  for (const user of SEED_USERS) {
+    pinHashes.set(user.id, await hashPin(DEFAULT_PIN));
+  }
+
+  await withTransaction(db, async (tx) => {
+    for (const p of SEED_PERMISSIONS) {
+      await tx.execute(
+        'INSERT OR IGNORE INTO permissions (id, module_id, description) VALUES (?, ?, ?)',
+        [p.id, p.module_id, p.description]
+      );
+    }
+
+    for (const user of SEED_USERS) {
+      await tx.execute(
+        'INSERT INTO users (id, username, pin_hash, full_name, role) VALUES (?, ?, ?, ?, ?)',
+        [user.id, user.username, pinHashes.get(user.id), user.full_name, user.role]
+      );
+    }
+
+    for (const grant of [...getAdminGrants(), ...getCaissierGrants()]) {
+      await tx.execute(
+        'INSERT OR IGNORE INTO user_grants (id, user_id, permission_id) VALUES (?, ?, ?)',
+        [grant.id, grant.user_id, grant.permission_id]
+      );
+    }
+
+    for (const cat of SEED_CATEGORIES) {
+      await tx.execute(
+        'INSERT OR IGNORE INTO categories (id, name, parent_id, sort_order) VALUES (?, ?, ?, ?)',
+        [cat.id, cat.name, cat.parent_id, cat.sort_order]
+      );
+    }
+
+    for (const cfg of SEED_CONFIG) {
+      await tx.execute(
+        'INSERT OR IGNORE INTO app_config (key, value) VALUES (?, ?)',
+        [cfg.key, cfg.value]
+      );
+    }
+  });
+
+  console.log('[Seed] Données initiales insérées (admin/caissier, PIN 1234 — à changer).');
+}
 
 export const SEED_CONFIG: { key: string; value: string }[] = [
   { key: 'store_name', value: 'JIABY' },

@@ -89,15 +89,43 @@ class WebCryptoHasher implements PinHasher {
   }
 }
 
+/**
+ * Hasheur bcrypt via le backend Rust (commandes Tauri hash_pin / verify_pin).
+ * Les hash PBKDF2 hérités (préfixe `pbkdf2:`) restent vérifiables
+ * via le fallback Web Crypto — migration transparente.
+ */
+class TauriBcryptHasher implements PinHasher {
+  private fallback = new WebCryptoHasher();
+
+  async hash(pin: string): Promise<string> {
+    const { invoke } = await import('@tauri-apps/api/core');
+    return invoke<string>('hash_pin', { pin });
+  }
+
+  async verify(pin: string, storedHash: string): Promise<boolean> {
+    if (storedHash.startsWith('pbkdf2:')) {
+      return this.fallback.verify(pin, storedHash);
+    }
+    const { invoke } = await import('@tauri-apps/api/core');
+    return invoke<boolean>('verify_pin', { pin, hash: storedHash });
+  }
+}
+
+/** Détecte le runtime Tauri (backend Rust disponible). */
+function isTauri(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+}
+
 // Singleton
 let _hasher: PinHasher | null = null;
 
 /**
- * Retourne le hasheur approprié pour l'environnement courant.
+ * Retourne le hasheur approprié pour l'environnement courant :
+ * bcrypt (Rust) sous Tauri, PBKDF2 (Web Crypto) sinon.
  */
 export function getPinHasher(): PinHasher {
   if (!_hasher) {
-    _hasher = new WebCryptoHasher();
+    _hasher = isTauri() ? new TauriBcryptHasher() : new WebCryptoHasher();
   }
   return _hasher;
 }

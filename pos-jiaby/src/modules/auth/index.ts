@@ -4,6 +4,7 @@ export type { AuthUser } from './authStore';
 export { usePermission, IfPermission } from './usePermission';
 export {
   validatePin,
+  authenticate,
   isLocked,
   lockRemainingSeconds,
   hasPermission,

@@ -24,11 +24,7 @@ import type {
 
 // ─── Helpers ───────────────────────────────────────────────────────
 
-/** Interface minimale pour la DB Tauri SQL */
-interface Db {
-  execute(sql: string, params?: unknown[]): Promise<{ rows: unknown[] }>;
-  select<T>(sql: string, params?: unknown[]): Promise<T[]>;
-}
+import type { Db } from './index';
 
 // ─── Item Repository ───────────────────────────────────────────────
 

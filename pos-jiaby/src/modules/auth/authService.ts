@@ -56,17 +56,17 @@ export function lockRemainingSeconds(lockedUntil: string | null): number {
 }
 
 /**
- * Vérifie un PIN (hashé avec bcrypt/argon2).
- *
- * Dans le proto, cette fonction délègue le hashage à la couche DB.
- * Ici on décrit la logique métier pure.
+ * Applique les règles métier de connexion (verrouillage, soft delete).
+ * La comparaison cryptographique du hash est faite en amont (pinHasher) ;
+ * son résultat est passé via `pinMatches`.
  */
 export function validatePin(
   _inputPin: string,
   _storedHash: string,
   failedAttempts: number,
   lockedUntil: string | null,
-  deleted: number
+  deleted: number,
+  pinMatches: boolean = true
 ): AuthResult {
   // Compte supprimé
   if (deleted === 1) {
@@ -82,14 +82,7 @@ export function validatePin(
     };
   }
 
-  // La vérification réelle du hash sera faite par la couche DB
-  // (bcrypt.compare ou argon2.verify)
-  // Ici on documente juste la logique.
-
-  // Placeholder : le hash doit être vérifié avec bcrypt/argon2
-  const pinValid = true; // Sera remplacé par la vérification réelle
-
-  if (!pinValid) {
+  if (!pinMatches) {
     const newAttempts = failedAttempts + 1;
     const lockUntil =
       newAttempts >= MAX_FAILED_ATTEMPTS
@@ -105,6 +98,75 @@ export function validatePin(
   }
 
   return { success: true };
+}
+
+/**
+ * Authentifie un utilisateur par PIN contre la base.
+ *
+ * Le login est « PIN seul » (pas de nom d'utilisateur) : le PIN est
+ * comparé au hash de chaque compte actif. Échecs et verrouillage
+ * sont persistés sur le compte correspondant… faute de compte
+ * identifiable, sur tous les comptes non verrouillés (anti brute-force).
+ */
+export async function authenticate(
+  db: {
+    select<T>(sql: string, params?: unknown[]): Promise<T[]>;
+    execute(sql: string, params?: unknown[]): Promise<unknown>;
+  },
+  pin: string
+): Promise<AuthResult> {
+  const { verifyPin } = await import('./pinHasher');
+
+  const users = await db.select<{
+    id: UUID;
+    username: string;
+    pin_hash: string;
+    full_name: string;
+    role: Role;
+    failed_attempts: number;
+    locked_until: string | null;
+    deleted: number;
+  }>('SELECT * FROM users WHERE deleted = 0');
+
+  for (const user of users) {
+    if (isLocked(user.failed_attempts, user.locked_until)) continue;
+
+    const matches = await verifyPin(pin, user.pin_hash);
+    if (matches) {
+      // Réinitialiser le compteur d'échecs
+      await db.execute(
+        'UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = ?',
+        [user.id]
+      );
+      return {
+        success: true,
+        user: {
+          id: user.id,
+          username: user.username,
+          fullName: user.full_name,
+          role: user.role,
+        },
+      };
+    }
+  }
+
+  // PIN inconnu : incrémenter les échecs sur tous les comptes actifs
+  // et verrouiller ceux qui atteignent le seuil.
+  const lockUntil = new Date(Date.now() + LOCK_DURATION_MS).toISOString();
+  await db.execute(
+    `UPDATE users
+     SET failed_attempts = failed_attempts + 1,
+         locked_until = CASE WHEN failed_attempts + 1 >= ? THEN ? ELSE locked_until END
+     WHERE deleted = 0`,
+    [MAX_FAILED_ATTEMPTS, lockUntil]
+  );
+
+  const maxAttempts = Math.max(0, ...users.map((u) => u.failed_attempts)) + 1;
+  return {
+    success: false,
+    error: maxAttempts >= MAX_FAILED_ATTEMPTS ? 'LOCKED' : 'INVALID_PIN',
+    remainingAttempts: Math.max(0, MAX_FAILED_ATTEMPTS - maxAttempts),
+  };
 }
 
 /**
