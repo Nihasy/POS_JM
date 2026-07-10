@@ -4,6 +4,12 @@ interface SearchBoxProps {
   onSearch: (query: string) => void;
   placeholder?: string;
   autoFocus?: boolean;
+  /**
+   * Scan douchette (la saisie se termine par Entrée) : appelé avec la
+   * valeur courante ; retourner true si le code a été traité (article
+   * ajouté au panier) → le champ est vidé pour le scan suivant.
+   */
+  onScan?: (value: string) => boolean;
 }
 
 /**
@@ -17,6 +23,7 @@ export function SearchBox({
   onSearch,
   placeholder = 'Rechercher un produit (nom, référence ou scan)…',
   autoFocus = true,
+  onScan,
 }: SearchBoxProps) {
   const [value, setValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -42,6 +49,13 @@ export function SearchBox({
     // Scan douchette : se termine par Enter
     if (e.key === 'Enter') {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      // Référence exacte scannée → article ajouté, champ vidé pour
+      // enchaîner les scans sans toucher au clavier
+      if (onScan && onScan(value.trim())) {
+        setValue('');
+        onSearch('');
+        return;
+      }
       onSearch(value.trim());
     }
   };

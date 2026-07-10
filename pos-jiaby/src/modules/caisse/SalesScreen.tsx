@@ -101,8 +101,24 @@ export function SalesScreen({
     [addItem]
   );
 
-  // Scan douchette : géré par SearchBox via onEnter
-  // La recherche par item_number exact déclenche l'ajout au panier
+  // Scan douchette (S05) : la douchette 2D en mode clavier tape la
+  // référence puis Entrée. Référence exacte → ajout direct au panier,
+  // champ vidé pour enchaîner les scans.
+  const handleScan = useCallback(
+    (code: string): boolean => {
+      if (!code) return false;
+      const exact = items.find(
+        (item) =>
+          item.deleted === 0 &&
+          item.item_number.toLowerCase() === code.toLowerCase()
+      );
+      if (!exact) return false;
+      handleAddToCart(exact);
+      setSearchResults([]);
+      return true;
+    },
+    [items, handleAddToCart]
+  );
 
   // Finalisation
   const handleFinalize = useCallback(
@@ -189,6 +205,7 @@ export function SalesScreen({
         <div className="flex w-1/2 flex-col">
           <SearchBox
             onSearch={handleSearch}
+            onScan={handleScan}
             placeholder="Rechercher (nom, référence) ou scanner un produit…"
           />
 
