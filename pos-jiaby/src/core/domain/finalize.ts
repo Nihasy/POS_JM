@@ -126,15 +126,17 @@ export function prepareFinalize(params: FinalizeParams): FinalizeResult {
     }
   }
 
-  // Calculer le rendu (espèces uniquement)
+  // Calculer le rendu (espèces uniquement) — S15
+  // Règle : si le total payé dépasse le total dû, le trop-perçu est rendu
+  // sur le paiement en espèces. Le trop-perçu non-espèces est refusé (S16).
   let changeGiven: number | null = null;
-  const cashPayment = params.payments.find((p) => p.method === 'ESPECES');
-  if (cashPayment && cashPayment.amount > total) {
-    // Vérifier que le trop-perçu espèces peut être rendu
-    const overpayment = cashPayment.amount - (total - params.payments
-      .filter(p => p.method !== 'ESPECES')
-      .reduce((s, p) => s + p.amount, 0));
-    if (overpayment > 0) {
+  const overpayment = paymentTotal - total;
+  if (overpayment > 0) {
+    // Vérifier que le trop-perçu est couvert par les espèces
+    const cashPayment = params.payments.find((p) => p.method === 'ESPECES');
+    if (!cashPayment || cashPayment.amount < overpayment) {
+      errors.push('Rendu impossible: trop-perçu non-espèces');
+    } else {
       changeGiven = overpayment;
     }
   }
@@ -342,4 +344,30 @@ export function checkCreditLimit(
   newCreditAmount: number
 ): boolean {
   return currentBalanceDue + newCreditAmount <= creditLimit;
+}
+
+/**
+ * Calcule le nouveau solde après règlement crédit (S19).
+ *
+ * @param currentBalanceDue - Solde actuel du client
+ * @param amount - Montant du règlement
+ * @returns Nouveau solde (≥ 0)
+ */
+export function settleCredit(
+  currentBalanceDue: number,
+  amount: number
+): number {
+  return Math.max(0, currentBalanceDue - amount);
+}
+
+/**
+ * Vérifie la permission admin pour un retour (S26).
+ *
+ * @param adminPin - true si le PIN admin a été validé
+ * @throws Error si le PIN admin n'est pas fourni
+ */
+export function checkReturnPermission(adminPin: boolean): void {
+  if (!adminPin) {
+    throw new Error('Retour: PIN admin requis');
+  }
 }

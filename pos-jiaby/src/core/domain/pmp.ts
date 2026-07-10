@@ -85,3 +85,37 @@ export function calculateCogs(quantity: number, costPrice: number): number {
 export function calculateMargin(salePrice: number, cogs: number): number {
   return salePrice - cogs;
 }
+
+/**
+ * Calcule le CA et la marge à partir des lignes de vente (S30).
+ *
+ * Équivalent TypeScript de report_sales_summary() du proto Python.
+ *
+ * @param items - Lignes avec prix appliqué, qté, et coût unitaire
+ * @returns {ca, marge} en Ariary
+ */
+export function reportSalesSummary(
+  items: { appliedPrice: number; quantity: number; costPrice: number }[]
+): { ca: number; marge: number } {
+  let ca = 0;
+  let cost = 0;
+  for (const item of items) {
+    ca += item.appliedPrice * item.quantity;
+    cost += item.costPrice * item.quantity;
+  }
+  return { ca, marge: ca - cost };
+}
+
+/**
+ * Calcule la valorisation totale du stock (Σ qté × PMP) (S32).
+ *
+ * Équivalent TypeScript de report_valuation() du proto Python.
+ *
+ * @param items - Articles avec leur quantité en stock et PMP
+ * @returns Valeur totale du stock en Ariary
+ */
+export function reportValuation(
+  items: { quantity: number; costPrice: number }[]
+): number {
+  return calculateStockValue(items);
+}

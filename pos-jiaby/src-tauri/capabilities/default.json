@@ -1,0 +1,12 @@
+{
+  "identifier": "default",
+  "description": "Permissions par défaut pour JIABY POS",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "sql:allow-load",
+    "sql:allow-execute",
+    "sql:allow-select",
+    "sql:allow-close"
+  ]
+}

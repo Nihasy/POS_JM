@@ -104,11 +104,9 @@ export function App() {
         if (!isTauri()) await seedDemoData(database);
         setDb(database);
       } catch (e) {
-        setBootError(
-          e instanceof Error
-            ? e.message
-            : "Impossible d'ouvrir la base — lancez l'application via « npm run tauri dev »."
-        );
+        const msg = e instanceof Error ? e.message : String(e ?? 'Erreur inconnue');
+        setBootError(`[DB] ${msg}`);
+        console.error('openDatabase error:', e);
       }
     })();
   }, []);

@@ -101,3 +101,27 @@ export function getItemsToReorder(
     }))
     .sort((a, b) => b.deficit - a.deficit); // Plus grand déficit en premier
 }
+
+/**
+ * Retourne les noms des produits sous le seuil de réapprovisionnement (S33).
+ *
+ * Équivalent TypeScript de report_low_stock() du proto Python.
+ *
+ * @param items - Articles avec nom et seuil
+ * @param stockLevels - Map itemId → stock actuel
+ * @returns Noms des produits en alerte
+ */
+export function reportLowStock(
+  items: { itemId: UUID; name: string; reorderLevel: number | null }[],
+  stockLevels: Map<UUID, number>
+): string[] {
+  const result: string[] = [];
+  for (const item of items) {
+    if (item.reorderLevel === null) continue;
+    const stock = stockLevels.get(item.itemId) ?? 0;
+    if (stock <= item.reorderLevel) {
+      result.push(item.name);
+    }
+  }
+  return result;
+}
