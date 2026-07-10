@@ -69,6 +69,30 @@ fn verify_pin(pin: String, hash: String) -> Result<bool, String> {
     bcrypt::verify(&pin, &hash).map_err(|e| e.to_string())
 }
 
+/// Enregistre un export CSV dans le dossier Téléchargements de
+/// l'utilisateur et retourne le chemin complet. Le WebView ne gère
+/// pas le téléchargement `<a download>` : l'écriture passe par Rust.
+#[tauri::command]
+fn save_report_csv(app: tauri::AppHandle, filename: String, content: String) -> Result<String, String> {
+    let dir = app
+        .path()
+        .download_dir()
+        .map_err(|e| format!("Dossier Téléchargements introuvable : {e}"))?;
+
+    // Nettoyage du nom de fichier (caractères interdits sous Windows)
+    let safe: String = filename
+        .chars()
+        .map(|c| match c {
+            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
+            _ => c,
+        })
+        .collect();
+
+    let path = dir.join(safe);
+    std::fs::write(&path, content).map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().to_string())
+}
+
 /// Prépare le dossier de sauvegardes (app_data/backups),
 /// purge les fichiers de plus de 30 jours et retourne le chemin.
 /// La copie elle-même est faite côté TS via `VACUUM INTO`.
@@ -136,7 +160,8 @@ pub fn run() {
             hash_pin,
             verify_pin,
             prepare_backup_dir,
-            execute_transaction
+            execute_transaction,
+            save_report_csv
         ])
         .run(tauri::generate_context!())
         .expect("Erreur au démarrage de JIABY POS");

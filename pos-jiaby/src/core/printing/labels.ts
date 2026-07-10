@@ -10,6 +10,7 @@
 
 import QRCode from 'qrcode';
 import { formatAriary } from '@/core/format';
+import { printHtml } from './printHtml';
 
 export interface LabelData {
   itemNumber: string;
@@ -130,22 +131,15 @@ function escapeHtml(text: string): string {
 }
 
 /**
- * Ouvre une fenêtre d'impression avec la planche d'étiquettes.
+ * Imprime la planche d'étiquettes (iframe caché — fiable sous Tauri,
+ * window.open y est bloqué).
  */
 export async function printLabelSheet(
   labels: LabelData[],
   perPage: 24 | 40 = 24
 ): Promise<void> {
   const html = await generateLabelSheet(labels, perPage);
-  const win = window.open('', '_blank', 'width=800,height=600');
-  if (!win) {
-    throw new Error("Impossible d'ouvrir la fenêtre d'impression (popup bloquée ?)");
-  }
-  win.document.write(html);
-  win.document.close();
-  win.onload = () => {
-    win.print();
-  };
+  await printHtml(html);
 }
 
 /**

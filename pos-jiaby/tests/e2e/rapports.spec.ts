@@ -77,6 +77,21 @@ test('vélocité : ventes/jour et jours de stock (S34)', async ({ page }) => {
   await expect(row).toContainText('149'); // stock restant après la vente
 });
 
+test('export CSV : fichier téléchargé avec confirmation', async ({ page }) => {
+  await login(page);
+  await openSession(page, 50000);
+  await addToCart(page, 'Ampoule', 'Ampoule 9W');
+  await payCash(page, 3000);
+  await expect(page.getByText(/enregistrée/)).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole('button', { name: 'Rapports', exact: true }).click();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export CSV' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/^rapport_ventes_detail_\d{4}-\d{2}-\d{2}\.csv$/);
+  await expect(page.getByText(/Export téléchargé/)).toBeVisible();
+});
+
 test('session : les totaux MVola et crédit apparaissent à la clôture', async ({ page }) => {
   await login(page);
   await openSession(page, 50000);

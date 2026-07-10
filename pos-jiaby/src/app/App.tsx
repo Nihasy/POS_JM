@@ -232,6 +232,18 @@ export function App() {
     await printer.print(ticket);
   }, []);
 
+  const handlePrintLabels = useCallback(
+    async (labels: LabelData[], perPage: 24 | 40) => {
+      try {
+        await printLabelSheet(labels, perPage);
+      } catch (e) {
+        notify(`Étiquettes non imprimées : ${e instanceof Error ? e.message : 'erreur'}`);
+      }
+      setLabelOffer(null);
+    },
+    [notify]
+  );
+
   const handleFinalize = useCallback(
     async (payments: CartPayment[]) => {
       if (!db || !user) return;
@@ -864,19 +876,13 @@ export function App() {
           </p>
           <div className="flex gap-2">
             <button
-              onClick={async () => {
-                if (labelOffer) await printLabelSheet(labelOffer, 24);
-                setLabelOffer(null);
-              }}
+              onClick={() => labelOffer && handlePrintLabels(labelOffer, 24)}
               className="flex-1 rounded-lg bg-neutre py-2 text-sm font-semibold text-white hover:bg-blue-700 touch-target"
             >
               Planche A4 (24/page)
             </button>
             <button
-              onClick={async () => {
-                if (labelOffer) await printLabelSheet(labelOffer, 40);
-                setLabelOffer(null);
-              }}
+              onClick={() => labelOffer && handlePrintLabels(labelOffer, 40)}
               className="flex-1 rounded-lg bg-neutre py-2 text-sm font-semibold text-white hover:bg-blue-700 touch-target"
             >
               Planche A4 (40/page)

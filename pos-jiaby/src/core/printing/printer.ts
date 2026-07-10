@@ -13,6 +13,7 @@
 
 import { generateEscPosBuffer, generateTicketText } from './ticket';
 import type { TicketData } from './ticket';
+import { printHtml } from './printHtml';
 
 export type PrinterType = 'escpos' | 'windows_driver';
 
@@ -71,24 +72,7 @@ class WindowsDriverPrinter implements ReceiptPrinter {
   async print(data: TicketData): Promise<void> {
     const text = generateTicketText(data);
 
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = 'none';
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentDocument;
-    const win = iframe.contentWindow;
-    if (!doc || !win) {
-      iframe.remove();
-      throw new Error("Impossible de préparer la page d'impression.");
-    }
-
-    doc.open();
-    doc.write(`
+    await printHtml(`
       <!DOCTYPE html>
       <html>
       <head>
@@ -119,13 +103,6 @@ class WindowsDriverPrinter implements ReceiptPrinter {
       </body>
       </html>
     `);
-    doc.close();
-
-    // Laisser le rendu se poser, imprimer, puis nettoyer.
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    win.focus();
-    win.print();
-    setTimeout(() => iframe.remove(), 2000);
   }
 
   async printBuffer(_buffer: string): Promise<void> {

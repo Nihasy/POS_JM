@@ -47,6 +47,7 @@ export function ReportsScreen({
 }: ReportsScreenProps) {
   const [report, setReport] = useState<ReportType>('ventes_detail');
   const [days, setDays] = useState(30);
+  const [exportMsg, setExportMsg] = useState<string | null>(null);
 
   // Filtrer les ventes sur la période
   const filteredSales = useMemo(() => {
@@ -94,7 +95,7 @@ export function ReportsScreen({
     );
   }, [report, items, stockLevels]);
 
-  const exportCsv = () => {
+  const exportCsv = async () => {
     let csv = '';
     switch (report) {
       case 'ventes_detail':
@@ -127,13 +128,31 @@ export function ReportsScreen({
         csv = 'Rapport non exportable\n';
     }
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `rapport_${report}_${formatDate(new Date())}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // BOM UTF-8 : Excel reconnaît les accents ; date ISO pour le nom de fichier
+    const content = '﻿' + csv;
+    const filename = `rapport_${report}_${new Date().toISOString().slice(0, 10)}.csv`;
+
+    try {
+      if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+        // Le WebView ne gère pas <a download> : écriture via Rust
+        // dans le dossier Téléchargements de l'utilisateur.
+        const { invoke } = await import('@tauri-apps/api/core');
+        const path = await invoke<string>('save_report_csv', { filename, content });
+        setExportMsg(`Export enregistré : ${path}`);
+      } else {
+        const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+        setExportMsg(`Export téléchargé : ${filename}`);
+      }
+    } catch (e) {
+      setExportMsg(`Export impossible : ${e instanceof Error ? e.message : 'erreur'}`);
+    }
+    window.setTimeout(() => setExportMsg(null), 8000);
   };
 
   return (
@@ -175,6 +194,19 @@ export function ReportsScreen({
           Export CSV
         </button>
       </div>
+
+      {/* Confirmation / erreur d'export */}
+      {exportMsg && (
+        <div
+          className={`mb-3 rounded px-3 py-2 text-sm ${
+            exportMsg.startsWith('Export impossible')
+              ? 'bg-red-50 text-red-600'
+              : 'bg-blue-50 text-neutre'
+          }`}
+        >
+          {exportMsg}
+        </div>
+      )}
 
       {/* Contenu du rapport */}
       <div className="flex-1 overflow-auto rounded-lg bg-carte p-4 shadow-sm">
