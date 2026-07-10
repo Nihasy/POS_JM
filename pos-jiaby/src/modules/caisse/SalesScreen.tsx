@@ -23,6 +23,10 @@ interface SalesScreenProps {
   onSelectCustomer: () => void;
   /** Callback remise */
   onDiscount: () => void;
+  /** Création d'un devis à partir du panier (S23) */
+  onQuote: () => Promise<void>;
+  /** Ouverture de la modale de retour (S26–S27) */
+  onOpenReturn: () => void;
   /** Peut faire des ventes */
   canSell: boolean;
   /** Session ouverte ? */
@@ -43,8 +47,10 @@ export function SalesScreen({
   onFinalize,
   onSuspend,
   onRecall,
-  onSelectCustomer: _onSelectCustomer,
+  onSelectCustomer,
   onDiscount,
+  onQuote,
+  onOpenReturn,
   canSell,
   hasOpenSession,
 }: SalesScreenProps) {
@@ -126,6 +132,10 @@ export function SalesScreen({
           e.preventDefault();
           onDiscount();
           break;
+        case 'F6':
+          e.preventDefault();
+          onSelectCustomer();
+          break;
         case 'F8':
           e.preventDefault();
           onSuspend();
@@ -147,7 +157,7 @@ export function SalesScreen({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canSell, lines.length, onDiscount, onSuspend, onRecall]);
+  }, [canSell, lines.length, onDiscount, onSuspend, onRecall, onSelectCustomer]);
 
   const SHORTCUTS = [
     { key: 'F2', label: 'Rechercher' },
@@ -248,7 +258,7 @@ export function SalesScreen({
           <CartPanel />
 
           {/* Boutons d'action rapide */}
-          {lines.length > 0 && (
+          {lines.length > 0 ? (
             <div className="mt-3 flex gap-2">
               <button
                 onClick={onSuspend}
@@ -257,10 +267,25 @@ export function SalesScreen({
                 F8 Suspendre
               </button>
               <button
+                onClick={onQuote}
+                className="flex-1 rounded-lg border border-neutre bg-carte py-2 text-sm font-medium text-neutre hover:bg-blue-50 touch-target"
+              >
+                Devis
+              </button>
+              <button
                 onClick={() => setShowPayment(true)}
                 className="flex-1 rounded-lg bg-especes py-2 text-sm font-bold text-white hover:bg-green-700 touch-target"
               >
                 F10 Encaisser
+              </button>
+            </div>
+          ) : (
+            <div className="mt-3 flex justify-end">
+              <button
+                onClick={onOpenReturn}
+                className="rounded-lg border border-gray-300 bg-carte px-4 py-2 text-sm font-medium text-encre-2 hover:bg-gray-50 touch-target"
+              >
+                Retour d'articles…
               </button>
             </div>
           )}

@@ -1,4 +1,5 @@
 export { ReceiveScreen } from './ReceiveScreen';
+export { AdjustScreen } from './AdjustScreen';
 export {
   processReception,
   getLabelsCount,

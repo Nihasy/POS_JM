@@ -12,7 +12,7 @@ echo "=== Téléchargement des polices JIABY POS ==="
 # Archivo (variable, OFL)
 echo "[1/4] Téléchargement Archivo..."
 curl -L --create-dirs -o "$FONTS_DIR/Archivo-VariableFont_wdth,wght.ttf" \
-  "https://github.com/Omnibus-Type/Archivo/raw/main/fonts/variable/Archivo-VariableFont_wdth,wght.ttf" \
+  "https://github.com/google/fonts/raw/main/ofl/archivo/Archivo%5Bwdth%2Cwght%5D.ttf" \
   2>/dev/null || {
   echo "  → Fallback: téléchargement depuis Google Fonts..."
   curl -L -o /tmp/archivo.zip \
@@ -25,18 +25,18 @@ curl -L --create-dirs -o "$FONTS_DIR/Archivo-VariableFont_wdth,wght.ttf" \
 
 echo "[2/4] Téléchargement Archivo Italic..."
 curl -L --create-dirs -o "$FONTS_DIR/Archivo-Italic-VariableFont_wdth,wght.ttf" \
-  "https://github.com/Omnibus-Type/Archivo/raw/main/fonts/variable/Archivo-Italic-VariableFont_wdth,wght.ttf" \
+  "https://github.com/google/fonts/raw/main/ofl/archivo/Archivo-Italic%5Bwdth%2Cwght%5D.ttf" \
   2>/dev/null || echo "  → Non trouvé, sera ignoré"
 
 # IBM Plex Mono (OFL)
 echo "[3/4] Téléchargement IBM Plex Mono Regular..."
 curl -L --create-dirs -o "$FONTS_DIR/IBMPlexMono-Regular.ttf" \
-  "https://github.com/IBM/plex/raw/main/IBM-Plex-Mono/fonts/complete/ttf/IBMPlexMono-Regular.ttf" \
+  "https://github.com/google/fonts/raw/main/ofl/ibmplexmono/IBMPlexMono-Regular.ttf" \
   2>/dev/null || echo "  → Non trouvé, sera ignoré"
 
 echo "[4/4] Téléchargement IBM Plex Mono Bold..."
 curl -L --create-dirs -o "$FONTS_DIR/IBMPlexMono-Bold.ttf" \
-  "https://github.com/IBM/plex/raw/main/IBM-Plex-Mono/fonts/complete/ttf/IBMPlexMono-Bold.ttf" \
+  "https://github.com/google/fonts/raw/main/ofl/ibmplexmono/IBMPlexMono-Bold.ttf" \
   2>/dev/null || echo "  → Non trouvé, sera ignoré"
 
 echo ""

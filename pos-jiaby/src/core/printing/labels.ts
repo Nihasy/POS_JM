@@ -8,6 +8,7 @@
  * Chaque étiquette = QR(item_number) + nom court + prix détail (optionnel)
  */
 
+import QRCode from 'qrcode';
 import { formatAriary } from '@/core/format';
 
 export interface LabelData {
@@ -18,26 +19,44 @@ export interface LabelData {
 }
 
 /**
+ * Génère les QR codes (data URL PNG) pour une liste d'étiquettes.
+ * QR = item_number, lu par la douchette 2D en mode clavier.
+ */
+async function generateQrDataUrls(labels: LabelData[]): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  for (const label of labels) {
+    if (!result.has(label.itemNumber)) {
+      result.set(
+        label.itemNumber,
+        await QRCode.toDataURL(label.itemNumber, { margin: 1, width: 160 })
+      );
+    }
+  }
+  return result;
+}
+
+/**
  * Génère une page HTML de planche d'étiquettes A4.
  *
  * @param labels - Données des étiquettes
  * @param perPage - Nombre d'étiquettes par page (24 ou 40)
  * @returns Chaîne HTML complète prête pour impression
  */
-export function generateLabelSheet(
+export async function generateLabelSheet(
   labels: LabelData[],
   perPage: 24 | 40 = 24
-): string {
+): Promise<string> {
   const cols = perPage === 40 ? 5 : 4;
   const rows = perPage === 40 ? 8 : 6;
 
+  const qrCodes = await generateQrDataUrls(labels);
   const cells: string[] = [];
 
   // Remplir la grille
   for (let i = 0; i < rows * cols; i++) {
     const label = labels[i];
     if (label) {
-      cells.push(generateLabelCell(label));
+      cells.push(generateLabelCell(label, qrCodes.get(label.itemNumber)!));
     } else {
       cells.push('<div class="cell empty"></div>');
     }
@@ -73,16 +92,10 @@ export function generateLabelSheet(
     page-break-inside: avoid;
   }
   .cell.empty { border: none; }
-  .qr-placeholder {
+  .qr-code {
     width: 20mm;
     height: 20mm;
-    border: 1px solid #000;
     margin-bottom: 1mm;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 5pt;
-    color: #999;
   }
   .item-number { font-size: 6pt; color: #666; }
   .item-name { font-weight: bold; font-size: 7pt; margin: 0.5mm 0; }
@@ -98,18 +111,41 @@ export function generateLabelSheet(
 </html>`;
 }
 
-function generateLabelCell(label: LabelData): string {
-  // Le QR code sera généré côté client avec la librairie 'qrcode'
-  // Ici, placeholder pour l'impression HTML
+function generateLabelCell(label: LabelData, qrDataUrl: string): string {
   return `
 <div class="cell">
-  <div class="qr-placeholder" data-qr="${label.itemNumber}">
-    QR: ${label.itemNumber}
-  </div>
-  <div class="item-number">${label.itemNumber}</div>
-  <div class="item-name">${label.name}</div>
+  <img class="qr-code" src="${qrDataUrl}" alt="${escapeHtml(label.itemNumber)}" />
+  <div class="item-number">${escapeHtml(label.itemNumber)}</div>
+  <div class="item-name">${escapeHtml(label.name)}</div>
   ${label.showPrice ? `<div class="item-price">${formatAriary(label.price)}</div>` : ''}
 </div>`;
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * Ouvre une fenêtre d'impression avec la planche d'étiquettes.
+ */
+export async function printLabelSheet(
+  labels: LabelData[],
+  perPage: 24 | 40 = 24
+): Promise<void> {
+  const html = await generateLabelSheet(labels, perPage);
+  const win = window.open('', '_blank', 'width=800,height=600');
+  if (!win) {
+    throw new Error("Impossible d'ouvrir la fenêtre d'impression (popup bloquée ?)");
+  }
+  win.document.write(html);
+  win.document.close();
+  win.onload = () => {
+    win.print();
+  };
 }
 
 /**

@@ -14,19 +14,19 @@ if (-not (Test-Path $FontsDir)) {
 $fonts = @(
     @{
         Name = "Archivo-VariableFont_wdth,wght.ttf"
-        Url  = "https://github.com/Omnibus-Type/Archivo/raw/main/fonts/variable/Archivo-VariableFont_wdth,wght.ttf"
+        Url  = "https://github.com/google/fonts/raw/main/ofl/archivo/Archivo%5Bwdth%2Cwght%5D.ttf"
     },
     @{
         Name = "Archivo-Italic-VariableFont_wdth,wght.ttf"
-        Url  = "https://github.com/Omnibus-Type/Archivo/raw/main/fonts/variable/Archivo-Italic-VariableFont_wdth,wght.ttf"
+        Url  = "https://github.com/google/fonts/raw/main/ofl/archivo/Archivo-Italic%5Bwdth%2Cwght%5D.ttf"
     },
     @{
         Name = "IBMPlexMono-Regular.ttf"
-        Url  = "https://github.com/IBM/plex/raw/main/IBM-Plex-Mono/fonts/complete/ttf/IBMPlexMono-Regular.ttf"
+        Url  = "https://github.com/google/fonts/raw/main/ofl/ibmplexmono/IBMPlexMono-Regular.ttf"
     },
     @{
         Name = "IBMPlexMono-Bold.ttf"
-        Url  = "https://github.com/IBM/plex/raw/main/IBM-Plex-Mono/fonts/complete/ttf/IBMPlexMono-Bold.ttf"
+        Url  = "https://github.com/google/fonts/raw/main/ofl/ibmplexmono/IBMPlexMono-Bold.ttf"
     }
 )
 
