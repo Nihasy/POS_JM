@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { MontantAr } from '@/components';
 import type { Supplier, Item } from '@/core/domain/types';
-import { formatQty } from '@/core/format';
+import { formatQty, isDecimalUnit } from '@/core/format';
 
 interface ReceiveLineInput {
   itemId: string;
@@ -52,7 +52,9 @@ export function ReceiveScreen({ items, suppliers, stockLevels, onReceive }: Rece
         currentStock: stockQty,
         currentPmp: item.cost_price,
         numberOfPacks: 0,
-        looseUnits: item.receiving_quantity ?? 1,
+        // 0 par défaut — la qté par défaut du produit sert de pré-remplissage
+        // explicite, jamais d'unité « fantôme » ajoutée au total
+        looseUnits: item.receiving_quantity ?? 0,
         unitCost: item.cost_price,
       },
     ]);
@@ -197,18 +199,31 @@ export function ReceiveScreen({ items, suppliers, stockLevels, onReceive }: Rece
                       </span>
                     </td>
                     <td className="py-2 pr-2">
-                      <input
-                        className="w-full rounded border border-gray-200 px-2 py-1 text-sm text-center"
-                        type="number"
-                        min="0"
-                        value={line.numberOfPacks || ''}
-                        onChange={(e) =>
-                          updateLine(i, 'numberOfPacks', Number(e.target.value) || 0)
-                        }
-                      />
-                      {line.packName && (
-                        <span className="text-[0.625rem] text-encre-2">
-                          ×{line.qtyPerPack} {line.packName}
+                      {line.qtyPerPack && line.qtyPerPack > 0 ? (
+                        <>
+                          <input
+                            className="w-full rounded border border-gray-200 px-2 py-1 text-sm text-center"
+                            type="number"
+                            min="0"
+                            step="1"
+                            aria-label={`Cartons ${line.itemName}`}
+                            value={line.numberOfPacks || ''}
+                            onChange={(e) => {
+                              const n = Number(e.target.value) || 0;
+                              // Les conditionnements sont toujours entiers
+                              updateLine(i, 'numberOfPacks', Math.max(0, Math.floor(n)));
+                            }}
+                          />
+                          <span className="text-[0.625rem] text-encre-2">
+                            ×{line.qtyPerPack} {line.packName || 'pack'}
+                          </span>
+                        </>
+                      ) : (
+                        <span
+                          className="block text-center text-encre-2"
+                          title="Pas de conditionnement défini pour ce produit"
+                        >
+                          —
                         </span>
                       )}
                     </td>
@@ -217,11 +232,16 @@ export function ReceiveScreen({ items, suppliers, stockLevels, onReceive }: Rece
                         className="w-full rounded border border-gray-200 px-2 py-1 text-sm text-center"
                         type="number"
                         min="0"
-                        step="0.1"
+                        step={isDecimalUnit(line.unitName) ? '0.1' : '1'}
+                        aria-label={`Unités ${line.itemName}`}
                         value={line.looseUnits || ''}
-                        onChange={(e) =>
-                          updateLine(i, 'looseUnits', Number(e.target.value) || 0)
-                        }
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          if (Number.isNaN(n) || n < 0) return;
+                          // Unité entière (pièce…) : pas de décimales
+                          if (!isDecimalUnit(line.unitName) && !Number.isInteger(n)) return;
+                          updateLine(i, 'looseUnits', n);
+                        }}
                       />
                     </td>
                     <td className="py-2 pr-2 text-center font-mono">

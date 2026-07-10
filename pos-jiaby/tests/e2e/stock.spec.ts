@@ -63,6 +63,35 @@ test('sortie manuelle motivée → stock décrémenté', async ({ page }) => {
   ).toContainText('46');
 });
 
+test('réception : total unités cohérent quand cartons et unités changent', async ({ page }) => {
+  await login(page);
+  await page.getByRole('button', { name: 'Stock', exact: true }).click();
+  await page.locator('select').nth(1).selectOption({ label: 'Torche LED rechargeable' });
+  await page.getByRole('button', { name: '+ Ajouter' }).click();
+
+  const row = page.getByRole('row').filter({ hasText: 'Torche LED rechargeable' });
+  const totalCell = row.locator('td').nth(3);
+
+  // Aucune unité fantôme au départ
+  await expect(totalCell).toHaveText('0');
+
+  // 2 cartons de 24 → 48
+  await page.getByLabel('Cartons Torche LED rechargeable').fill('2');
+  await expect(totalCell).toHaveText('48');
+
+  // + 5 unités en vrac → 53
+  await page.getByLabel('Unités Torche LED rechargeable').fill('5');
+  await expect(totalCell).toHaveText('53');
+
+  // Changer les cartons recalcule sans incohérence : 3×24 + 5 = 77
+  await page.getByLabel('Cartons Torche LED rechargeable').fill('3');
+  await expect(totalCell).toHaveText('77');
+
+  // Unité « pièce » : décimales refusées dans les unités en vrac
+  await page.getByLabel('Unités Torche LED rechargeable').fill('2.5');
+  await expect(totalCell).toHaveText('77');
+});
+
 test('réception multi-pack : 2 cartons de 24 + 2 unités → stock +50, PMP recalculé (S02–S03)', async ({
   page,
 }) => {

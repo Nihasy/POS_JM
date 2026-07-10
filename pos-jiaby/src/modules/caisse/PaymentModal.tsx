@@ -20,7 +20,15 @@ const PAYMENT_METHODS: { method: PaymentMethod; label: string; color: string }[]
  * Écran de paiement — multi-méthodes, rendu automatique.
  */
 export function PaymentModal({ open, onClose, onFinalize, allowCredit }: PaymentModalProps) {
-  const { total, customerId } = useCartStore();
+  const {
+    total,
+    subtotal,
+    customerId,
+    customerName,
+    lines,
+    discountGlobalPercent,
+    discountGlobalAmount,
+  } = useCartStore();
   const [payments, setPayments] = useState<CartPayment[]>([]);
   const [activeMethod, setActiveMethod] = useState<PaymentMethod>('ESPECES');
   const [amountStr, setAmountStr] = useState('');
@@ -121,6 +129,41 @@ export function PaymentModal({ open, onClose, onFinalize, allowCredit }: Payment
         </div>
 
         <div className="px-6 py-4 space-y-4">
+          {/* Récapitulatif de la commande — vérification avant confirmation */}
+          <div className="rounded border border-gray-200 bg-atelier px-3 py-2">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-encre-2">
+              Récapitulatif
+              {customerName && (
+                <span className="ml-2 normal-case font-normal text-neutre">
+                  Client : {customerName}
+                </span>
+              )}
+            </p>
+            <div className="max-h-32 space-y-0.5 overflow-y-auto text-sm">
+              {lines.map((l) => (
+                <div key={l.tempId} className="flex items-baseline justify-between gap-2">
+                  <span className="truncate text-encre">
+                    {l.name}
+                    <span className="ml-1 font-mono text-xs text-encre-2">
+                      ×{String(l.quantity).replace('.', ',')}
+                      {l.unitName ? ` ${l.unitName}` : ''}
+                    </span>
+                  </span>
+                  <MontantAr value={l.lineTotal} className="text-sm shrink-0" />
+                </div>
+              ))}
+            </div>
+            {(discountGlobalPercent || discountGlobalAmount) && (
+              <div className="mt-1 flex justify-between border-t border-gray-200 pt-1 text-xs text-alerte">
+                <span>
+                  Remise globale
+                  {discountGlobalPercent ? ` ${discountGlobalPercent} %` : ''}
+                </span>
+                <MontantAr value={-(subtotal - total)} className="text-xs" />
+              </div>
+            )}
+          </div>
+
           {/* Total à payer */}
           <div className="text-center">
             <p className="text-sm text-encre-2">Total à payer</p>

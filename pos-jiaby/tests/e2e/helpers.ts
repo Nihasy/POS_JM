@@ -34,7 +34,15 @@ export async function addToCart(page: Page, searchTerm: string, cardText: string
   await page.getByRole('button', { name: new RegExp(cardText) }).first().click();
 }
 
-/** Paye le montant donné en espèces dans la modale de paiement. */
+/** Ferme la facture (ticket de caisse) affichée après un encaissement. */
+export async function closeTicket(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Fermer', exact: true }).click();
+}
+
+/**
+ * Paye le montant donné en espèces dans la modale de paiement,
+ * puis ferme la facture affichée.
+ */
 export async function payCash(page: Page, amount: number): Promise<void> {
   await page.getByRole('button', { name: 'F10 Encaisser' }).click();
   for (const digit of String(amount)) {
@@ -42,4 +50,5 @@ export async function payCash(page: Page, amount: number): Promise<void> {
   }
   await page.getByRole('button', { name: '↵' }).click();
   await page.getByRole('button', { name: 'Encaisser', exact: true }).click();
+  await closeTicket(page);
 }

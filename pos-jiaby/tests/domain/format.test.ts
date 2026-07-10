@@ -6,6 +6,8 @@ import {
   formatQty,
   parseQty,
   formatQtyWithUnit,
+  isDecimalUnit,
+  normalizeQty,
   formatDate,
   formatDateLong,
   formatDateTime,
@@ -131,6 +133,36 @@ describe('formatQtyWithUnit', () => {
 
   it('mètre (jamais de pluriel)', () => {
     expect(formatQtyWithUnit(2.5, 'm')).toBe('2,5 m');
+  });
+});
+
+// ─── unités et quantités décimales ─────────────────────────────────
+describe('isDecimalUnit / normalizeQty', () => {
+  it('m et kg acceptent les décimales', () => {
+    expect(isDecimalUnit('m')).toBe(true);
+    expect(isDecimalUnit('kg')).toBe(true);
+    expect(isDecimalUnit('KG')).toBe(true);
+  });
+
+  it('pièce, rouleau, lot, paire sont entiers', () => {
+    expect(isDecimalUnit('pièce')).toBe(false);
+    expect(isDecimalUnit('rouleau')).toBe(false);
+    expect(isDecimalUnit('lot')).toBe(false);
+    expect(isDecimalUnit('paire')).toBe(false);
+    expect(isDecimalUnit(null)).toBe(false);
+    expect(isDecimalUnit(undefined)).toBe(false);
+  });
+
+  it('normalizeQty : entier tronqué pour les unités à la pièce', () => {
+    expect(normalizeQty(2.7, 'pièce')).toBe(2);
+    expect(normalizeQty(3, 'pièce')).toBe(3);
+    expect(normalizeQty(0.5, 'pièce')).toBe(0);
+  });
+
+  it('normalizeQty : arrondi à 0,1 pour m et kg', () => {
+    expect(normalizeQty(2.55, 'm')).toBe(2.6);
+    expect(normalizeQty(2.5, 'm')).toBe(2.5);
+    expect(normalizeQty(1.25, 'kg')).toBe(1.3);
   });
 });
 

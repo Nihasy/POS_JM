@@ -8,6 +8,7 @@
 import { create } from 'zustand';
 import type { UUID, CartLine } from '@/core/domain/types';
 import { lineTotal, saleTotal } from '@/core/domain/pricing';
+import { normalizeQty } from '@/core/format';
 
 interface CartState {
   /** Lignes du panier */
@@ -136,6 +137,7 @@ export const useCartStore = create<CartState>((set, get) => ({
         priceGros: params.priceGros ?? null,
         qtySemiGros: params.qtySemiGros ?? null,
         qtyGros: params.qtyGros ?? null,
+        unitName: params.unitName,
       };
 
       set({ lines: [...lines, newLine] });
@@ -145,14 +147,15 @@ export const useCartStore = create<CartState>((set, get) => ({
   },
 
   updateQuantity: (tempId, quantity) => {
-    if (quantity <= 0) {
-      get().removeItem(tempId);
-      return;
-    }
-
     const { lines } = get();
     const line = lines.find((l) => l.tempId === tempId);
     if (!line) return;
+
+    // Unités entières (pièce, rouleau…) : pas de décimales ;
+    // m / kg : arrondi à 0,1. Une quantité nulle est ignorée
+    // (la suppression passe par le bouton ✕).
+    quantity = normalizeQty(quantity, line.unitName);
+    if (quantity <= 0) return;
 
     // Prix négocié = override manuel (tierApplied null) ; un prix de palier
     // doit être recalculé selon la nouvelle quantité, pas figé.

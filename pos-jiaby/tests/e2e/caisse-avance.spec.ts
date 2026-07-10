@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { login, openSession, addToCart, payCash } from './helpers';
+import { login, openSession, addToCart, payCash, closeTicket } from './helpers';
 
 /**
  * Caisse avancée : remises, quantités décimales, paliers par quantité,
@@ -142,6 +142,7 @@ test('vente à crédit avec client → solde dû mis à jour (S18)', async ({ pa
   await typeAmount(page, 3000);
   await page.getByRole('button', { name: 'Encaisser', exact: true }).click();
   await expect(page.getByText(/enregistrée/)).toBeVisible({ timeout: 15_000 });
+  await closeTicket(page);
 
   // Solde visible sur l'écran Clients
   await page.getByRole('button', { name: 'Clients', exact: true }).click();
@@ -198,6 +199,64 @@ test('deux ventes consécutives : la modale de paiement repart à zéro', async 
   await typeAmount(page, 3000);
   await page.getByRole('button', { name: 'Encaisser', exact: true }).click();
   await expect(page.getByText(/V-\d{4}-00002 enregistrée/)).toBeVisible({ timeout: 15_000 });
+});
+
+test('récapitulatif de la commande visible avant confirmation', async ({ page }) => {
+  await login(page);
+  await openSession(page, 50000);
+
+  await addToCart(page, 'Torche', 'Torche LED');
+  await addToCart(page, 'Ampoule', 'Ampoule 9W');
+  await page.getByRole('button', { name: 'F10 Encaisser' }).click();
+
+  // Le récap liste chaque article avec sa quantité avant d'encaisser
+  const recap = page.locator('div.rounded.bg-atelier').filter({ hasText: 'Récapitulatif' });
+  await expect(recap).toBeVisible();
+  await expect(recap).toContainText('Torche LED');
+  await expect(recap).toContainText('×1 pièce');
+  await expect(recap).toContainText('Ampoule 9W');
+  await expect(page.getByText('Total à payer')).toBeVisible();
+});
+
+test('facture (ticket de caisse) affichée après encaissement, imprimable', async ({ page }) => {
+  await login(page);
+  await openSession(page, 50000);
+
+  await addToCart(page, 'Ampoule', 'Ampoule 9W');
+  await page.getByRole('button', { name: 'F10 Encaisser' }).click();
+  for (const digit of '5000') {
+    await page.getByRole('button', { name: digit, exact: true }).click();
+  }
+  await page.getByRole('button', { name: '↵' }).click();
+  await page.getByRole('button', { name: 'Encaisser', exact: true }).click();
+
+  // La facture s'affiche : numéro, lignes, total, paiement, rendu
+  await expect(page.getByText(/Ticket V-\d{4}-00001/)).toBeVisible({ timeout: 15_000 });
+  const ticket = page.locator('pre');
+  await expect(ticket).toContainText('Ampoule 9W');
+  await expect(ticket).toContainText('TOTAL');
+  await expect(ticket).toContainText('Especes');
+  await expect(ticket).toContainText('Rendu');
+  await expect(page.getByRole('button', { name: 'Imprimer' })).toBeVisible();
+
+  await closeTicket(page);
+  await expect(page.getByText(/Ticket V-/)).toHaveCount(0);
+});
+
+test('unité pièce : quantité décimale refusée (vente à l’unité)', async ({ page }) => {
+  await login(page);
+  await openSession(page, 50000);
+
+  // Torche = unité « pièce » → 2.5 refusé, la quantité reste 1
+  await addToCart(page, 'Torche', 'Torche LED');
+  const qty = page.getByLabel('Quantité Torche LED');
+  await qty.fill('2.5');
+  await expect(qty).toHaveValue('1');
+  await expect(page.getByText('15 000 Ar').first()).toBeVisible();
+
+  // Un entier passe normalement
+  await qty.fill('3');
+  await expect(page.getByText('45 000 Ar').first()).toBeVisible();
 });
 
 test('paiement saisi au clavier physique : montant + Entrée', async ({ page }) => {

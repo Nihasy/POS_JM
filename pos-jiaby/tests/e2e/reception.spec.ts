@@ -15,9 +15,12 @@ test('réception : ligne → validation → stock à jour → étiquettes propos
   await page.locator('select').last().selectOption({ label: 'Panneau solaire 50 W' });
   await page.getByRole('button', { name: '+ Ajouter', exact: true }).click();
 
-  // 2 unités au coût de 90 000 Ar (les champs sont pré-remplis)
+  // Pas de conditionnement défini → la colonne Cartons affiche « — »
   const row = page.locator('tbody tr').first();
-  await row.locator('input').nth(1).fill('2'); // unités en vrac
+  await expect(row.getByText('—')).toBeVisible();
+
+  // 2 unités au coût pré-rempli (90 000 Ar)
+  await page.getByLabel('Unités Panneau solaire 50 W').fill('2');
 
   await page.getByRole('button', { name: 'Valider la réception' }).click();
 

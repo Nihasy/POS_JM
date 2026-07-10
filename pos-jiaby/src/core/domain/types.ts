@@ -232,6 +232,8 @@ export interface CartLine {
   priceGros?: number | null;
   qtySemiGros?: number | null;
   qtyGros?: number | null;
+  /** Unité de vente — détermine si la quantité peut être décimale (m, kg). */
+  unitName?: string;
 }
 
 export interface CartPayment {

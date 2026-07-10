@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login, openSession, addToCart, payCash } from './helpers';
+import { login, openSession, addToCart, payCash, closeTicket } from './helpers';
 
 /**
  * Rapports (S30–S33) : ventes détaillées, synthèse CA, valorisation,
@@ -92,6 +92,7 @@ test('session : les totaux MVola et crédit apparaissent à la clôture', async 
   await page.getByRole('button', { name: '↵' }).click();
   await page.getByRole('button', { name: 'Encaisser', exact: true }).click();
   await expect(page.getByText(/enregistrée/)).toBeVisible({ timeout: 15_000 });
+  await closeTicket(page);
 
   // Écran session : MVola 3 000 Ar, attendu espèces = fond (50 000)
   await page.getByRole('button', { name: 'Session', exact: true }).click();

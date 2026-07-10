@@ -15,6 +15,8 @@ import {
   ReturnModal,
   useCartStore,
 } from '@/modules/caisse';
+import { TicketModal } from '@/modules/caisse/TicketModal';
+import type { TicketData } from '@/core/printing/ticket';
 import { CatalogueScreen } from '@/modules/catalogue';
 import { ReceiveScreen, AdjustScreen } from '@/modules/stock';
 import { ClientsScreen } from '@/modules/clients';
@@ -93,6 +95,9 @@ export function App() {
 
   // Étiquettes après réception (S02)
   const [labelOffer, setLabelOffer] = useState<LabelData[] | null>(null);
+
+  // Facture / ticket de caisse affiché après encaissement
+  const [ticketData, setTicketData] = useState<TicketData | null>(null);
 
   // Sync
   const [syncStatus, setSyncStatus] = useState<{ online: boolean; error: string | null }>({
@@ -186,41 +191,46 @@ export function App() {
   );
 
   // ─── Caisse ──────────────────────────────────────────────────────
-  const printTicket = useCallback(
-    async (saleNumber: string, payments: CartPayment[], changeGiven: number | null) => {
+  /** Assemble la facture (ticket 80 mm) depuis le panier courant. */
+  const buildTicketData = useCallback(
+    (
+      saleNumber: string,
+      payments: CartPayment[],
+      changeGiven: number | null
+    ): TicketData => {
       const state = useCartStore.getState();
-      try {
-        const printer = createPrinter({ type: 'windows_driver' });
-        await printer.print({
-          ticketNumber: saleNumber,
-          date: new Date(),
-          cashier: user?.fullName ?? '',
-          lines: state.lines.map((l) => ({
-            name: l.name,
-            quantity: l.quantity,
-            unitPrice: l.appliedPrice,
-            lineTotal: l.lineTotal,
-            discountPercent: l.discountPercent,
-            discountAmount: l.discountAmount,
-            tierApplied: l.tierApplied,
-          })),
-          subtotal: state.subtotal,
-          discountGlobalPercent: state.discountGlobalPercent,
-          discountGlobalAmount: state.discountGlobalAmount,
-          total: state.total,
-          payments: payments.map((p) => ({
-            method: p.method,
-            amount: p.amount,
-            reference: p.reference,
-            change: p.method === 'ESPECES' ? changeGiven : null,
-          })),
-        });
-      } catch (e) {
-        notify(`Ticket non imprimé : ${e instanceof Error ? e.message : 'erreur'}`);
-      }
+      return {
+        ticketNumber: saleNumber,
+        date: new Date(),
+        cashier: user?.fullName ?? '',
+        lines: state.lines.map((l) => ({
+          name: l.name,
+          quantity: l.quantity,
+          unitPrice: l.appliedPrice,
+          lineTotal: l.lineTotal,
+          discountPercent: l.discountPercent,
+          discountAmount: l.discountAmount,
+          tierApplied: l.tierApplied,
+        })),
+        subtotal: state.subtotal,
+        discountGlobalPercent: state.discountGlobalPercent,
+        discountGlobalAmount: state.discountGlobalAmount,
+        total: state.total,
+        payments: payments.map((p) => ({
+          method: p.method,
+          amount: p.amount,
+          reference: p.reference,
+          change: p.method === 'ESPECES' ? changeGiven : null,
+        })),
+      };
     },
-    [user, notify]
+    [user]
   );
+
+  const handlePrintTicket = useCallback(async (ticket: TicketData) => {
+    const printer = createPrinter({ type: 'windows_driver' });
+    await printer.print(ticket);
+  }, []);
 
   const handleFinalize = useCallback(
     async (payments: CartPayment[]) => {
@@ -236,7 +246,8 @@ export function App() {
           discountGlobalAmount: state.discountGlobalAmount,
           originalSaleId: quoteToConvert,
         });
-        await printTicket(result.saleNumber, payments, result.changeGiven);
+        // Facture affichée à l'écran — impression au choix du caissier
+        setTicketData(buildTicketData(result.saleNumber, payments, result.changeGiven));
         setQuoteToConvert(null);
         notify(`Vente ${result.saleNumber} enregistrée.`);
         await refresh();
@@ -245,7 +256,7 @@ export function App() {
         throw e;
       }
     },
-    [db, user, quoteToConvert, printTicket, notify, refresh]
+    [db, user, quoteToConvert, buildTicketData, notify, refresh]
   );
 
   const handleSuspend = useCallback(async () => {
@@ -832,6 +843,13 @@ export function App() {
         onClose={() => setShowReturn(false)}
         onSearchSale={(n) => findSaleByNumber(db, n)}
         onReturn={handleReturn}
+      />
+
+      {/* Facture / ticket de caisse après encaissement */}
+      <TicketModal
+        ticket={ticketData}
+        onPrint={handlePrintTicket}
+        onClose={() => setTicketData(null)}
       />
 
       {/* Proposition d'étiquettes après réception (S02) */}

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Modal } from '@/components';
 import type { Item, Category } from '@/core/domain/types';
 import type { AdjustmentReason } from '@/core/domain/adjustment';
-import { formatQty } from '@/core/format';
+import { formatQty, isDecimalUnit } from '@/core/format';
 
 interface AdjustScreenProps {
   items: Item[];
@@ -188,12 +188,22 @@ export function AdjustScreen({
                       className="w-24 rounded border border-gray-300 px-2 py-1 text-right font-mono text-sm focus:border-neutre focus:outline-none"
                       type="number"
                       min="0"
-                      step="0.1"
+                      step={isDecimalUnit(item.unit_name) ? '0.1' : '1'}
+                      aria-label={`Compté ${item.name}`}
                       value={raw}
                       onChange={(e) => {
+                        const v = e.target.value;
+                        // Unité entière : refuser les décimales
+                        if (
+                          v !== '' &&
+                          !isDecimalUnit(item.unit_name) &&
+                          !Number.isInteger(Number(v))
+                        ) {
+                          return;
+                        }
                         const next = new Map(counts);
-                        if (e.target.value === '') next.delete(item.id);
-                        else next.set(item.id, e.target.value);
+                        if (v === '') next.delete(item.id);
+                        else next.set(item.id, v);
                         setCounts(next);
                       }}
                     />
@@ -250,9 +260,17 @@ export function AdjustScreen({
             placeholder="Quantité"
             type="number"
             min="0"
-            step="0.1"
+            step={
+              isDecimalUnit(items.find((i) => i.id === outItemId)?.unit_name) ? '0.1' : '1'
+            }
             value={outQty}
-            onChange={(e) => setOutQty(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value;
+              const unit = items.find((i) => i.id === outItemId)?.unit_name;
+              // Unité entière : refuser les décimales
+              if (v !== '' && !isDecimalUnit(unit) && !Number.isInteger(Number(v))) return;
+              setOutQty(v);
+            }}
           />
           <select
             className="w-full rounded border border-gray-300 px-3 py-2 text-sm"

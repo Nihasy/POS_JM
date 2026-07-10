@@ -119,7 +119,7 @@ L'écran est en deux colonnes : **recherche de produits** à gauche, **panier** 
 
 ### 4.2 Modifier une ligne du panier
 
-- **Quantité** : chaque ligne a un champ quantité modifiable. Les décimales sont acceptées — pour vendre **2,5 m de câble**, tapez `2.5`. Mettre 0 supprime la ligne.
+- **Quantité** : chaque ligne a un champ quantité modifiable. Les décimales ne sont acceptées **que pour les unités mètre (m) et kilogramme (kg)** — pour vendre 2,5 m de câble, tapez `2.5`. Les articles vendus **à la pièce** (pièce, rouleau, lot, paire) n'acceptent que des quantités entières : la virgule est refusée.
 - **Supprimer** : bouton ✕ au bout de la ligne.
 - Le **palier de prix se recalcule automatiquement** quand la quantité change (voir ci-dessous) ; un badge *Semi-gros* ou *Gros* apparaît sur la ligne.
 
@@ -164,7 +164,9 @@ Sélectionnez **Crédit** — un **client doit être associé** (`F6`), sinon : 
 
 **Paiement mixte** : ajoutez plusieurs paiements l'un après l'autre (ex. MVola 5 000 + espèces 10 000 pour un total de 15 000). La fenêtre affiche *Payé* et *Reste à payer* au fur et à mesure. Le bouton ✕ retire un paiement saisi par erreur.
 
-Quand le total payé couvre le dû, cliquez **Encaisser** : la vente reçoit un numéro (**V-2026-00001**), le ticket part à l'imprimante, le stock est décrémenté, et le panier se vide. **Annuler** referme la fenêtre sans rien enregistrer.
+La fenêtre de paiement affiche en haut le **récapitulatif de la commande** (chaque article, sa quantité, son total, la remise éventuelle) — vérifiez-le avant de confirmer.
+
+Quand le total payé couvre le dû, cliquez **Encaisser** : la vente reçoit un numéro (**V-2026-00001**), le stock est décrémenté, le panier se vide, et la **facture (ticket de caisse)** s'affiche à l'écran au format 80 mm — comme au supermarché : articles, quantités, remises, total, paiements et rendu. Cliquez **Imprimer** pour la sortir sur l'imprimante à tickets, ou **Fermer** pour passer au client suivant. **Annuler** (avant d'encaisser) referme la fenêtre sans rien enregistrer.
 
 > Si le stock est insuffisant, la vente entière est refusée : *« Stock insuffisant — <produit> : demandé X, disponible Y »*. Rien n'est enregistré (tout ou rien).
 
@@ -234,8 +236,8 @@ Pour enregistrer une arrivée fournisseur (lot d'import, achat grossiste) :
 1. Choisissez le **fournisseur** (facultatif) et saisissez la **réf. du lot** (ex. `IMPORT-CN-07`).
 2. Ajoutez les produits un à un (menu « — Ajouter un produit — » → **+ Ajouter**).
 3. Pour chaque ligne, saisissez :
-   - **Cartons** : nombre de conditionnements (convertis via la qté/pack du produit) ;
-   - **Unités** : unités en vrac en plus des cartons ;
+   - **Cartons** : nombre de conditionnements entiers (convertis via la qté/pack du produit). Si le produit n'a pas de conditionnement défini, cette colonne affiche « — » ;
+   - **Unités** : unités en vrac en plus des cartons (décimales acceptées uniquement pour m et kg) ;
    - **Coût unitaire** : prix d'achat par unité de vente, en Ariary.
 4. La colonne **Total unités** et le **Nouveau PMP** se calculent en direct — vérifiez avant de valider.
 5. **Valider la réception** : le stock augmente, le PMP du produit est mis à jour, et l'impression d'étiquettes est proposée.

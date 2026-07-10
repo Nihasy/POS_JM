@@ -52,6 +52,27 @@ export function parseQty(input: string): number {
 }
 
 /**
+ * Unités vendables en quantités décimales.
+ * Mètre (câbles au mètre) et kilogramme acceptent la virgule ;
+ * tout le reste (pièce, rouleau, lot, paire…) se vend en entiers.
+ */
+const DECIMAL_UNITS = ['m', 'kg'];
+
+/** La quantité de cette unité peut-elle être décimale ? */
+export function isDecimalUnit(unitName: string | null | undefined): boolean {
+  return DECIMAL_UNITS.includes((unitName ?? '').trim().toLowerCase());
+}
+
+/**
+ * Normalise une quantité selon l'unité : les unités entières
+ * sont tronquées à l'entier, les unités décimales arrondies à 0,1.
+ */
+export function normalizeQty(qty: number, unitName: string | null | undefined): number {
+  if (isDecimalUnit(unitName)) return Math.round(qty * 10) / 10;
+  return Math.floor(qty);
+}
+
+/**
  * Formate une quantité avec son unité.
  *
  * @example

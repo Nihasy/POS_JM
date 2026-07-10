@@ -63,18 +63,32 @@ class EscPosPrinter implements ReceiptPrinter {
 /**
  * Imprimante via driver Windows (impression HTML 80mm).
  * Fallback quand pas d'imprimante ESC/POS.
+ *
+ * L'impression passe par un iframe caché dans la page (et non
+ * window.open, bloqué ou instable dans le WebView Tauri).
  */
 class WindowsDriverPrinter implements ReceiptPrinter {
   async print(data: TicketData): Promise<void> {
     const text = generateTicketText(data);
 
-    // Ouvrir une fenêtre cachée et imprimer
-    const printWindow = window.open('', '_blank', 'width=300,height=400');
-    if (!printWindow) {
-      throw new Error('Impossible d\'ouvrir la fenêtre d\'impression (popup bloquée ?)');
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument;
+    const win = iframe.contentWindow;
+    if (!doc || !win) {
+      iframe.remove();
+      throw new Error("Impossible de préparer la page d'impression.");
     }
 
-    printWindow.document.write(`
+    doc.open();
+    doc.write(`
       <!DOCTYPE html>
       <html>
       <head>
@@ -102,16 +116,16 @@ class WindowsDriverPrinter implements ReceiptPrinter {
       </head>
       <body>
         <pre>${escapeHtml(text)}</pre>
-        <script>
-          window.onload = function() {
-            window.print();
-            setTimeout(function() { window.close(); }, 500);
-          };
-        </script>
       </body>
       </html>
     `);
-    printWindow.document.close();
+    doc.close();
+
+    // Laisser le rendu se poser, imprimer, puis nettoyer.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    win.focus();
+    win.print();
+    setTimeout(() => iframe.remove(), 2000);
   }
 
   async printBuffer(_buffer: string): Promise<void> {

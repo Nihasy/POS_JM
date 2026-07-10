@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { login, openSession, addToCart } from './helpers';
+import { login, openSession, addToCart, closeTicket } from './helpers';
 
 /**
  * Clients & crédit : création, vente à crédit, règlement partiel/complet,
@@ -18,6 +18,7 @@ async function creditSale(page: Page, amount: number) {
   await page.getByRole('button', { name: '↵' }).click();
   await page.getByRole('button', { name: 'Encaisser', exact: true }).click();
   await expect(page.getByText(/enregistrée/)).toBeVisible({ timeout: 15_000 });
+  await closeTicket(page);
 }
 
 test('création d’un client avec plafond', async ({ page }) => {

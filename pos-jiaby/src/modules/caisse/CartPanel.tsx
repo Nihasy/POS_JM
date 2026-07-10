@@ -1,5 +1,6 @@
 import { MontantAr, TierBadge } from '@/components';
 import { useCartStore } from './cartStore';
+import { isDecimalUnit } from '@/core/format';
 
 /**
  * Panneau du panier (colonne de droite de l'écran de vente).
@@ -72,14 +73,25 @@ export function CartPanel() {
                       className="w-16 rounded border border-gray-200 px-1 py-0.5 text-right font-mono text-xs focus:border-neutre focus:outline-none"
                       type="number"
                       min="0"
-                      step="0.1"
+                      step={isDecimalUnit(line.unitName) ? '0.1' : '1'}
                       aria-label={`Quantité ${line.name}`}
+                      title={
+                        isDecimalUnit(line.unitName)
+                          ? `Quantité en ${line.unitName} (décimales acceptées)`
+                          : 'Vente à l’unité — quantité entière'
+                      }
                       value={String(line.quantity)}
                       onChange={(e) => {
                         const q = Number(e.target.value.replace(',', '.'));
-                        if (!Number.isNaN(q) && q > 0) updateQuantity(line.tempId, q);
+                        if (Number.isNaN(q) || q <= 0) return;
+                        // Unité entière : refuser la virgule (pas d'arrondi silencieux)
+                        if (!isDecimalUnit(line.unitName) && !Number.isInteger(q)) return;
+                        updateQuantity(line.tempId, q);
                       }}
                     />
+                    {line.unitName && (
+                      <span className="text-[0.625rem]">{line.unitName}</span>
+                    )}
                     <span className="font-mono">×</span>
                     <MontantAr
                       value={line.appliedPrice}
