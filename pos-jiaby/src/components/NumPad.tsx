@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface NumPadProps {
   onValue: (value: string) => void;
@@ -45,6 +45,49 @@ export function NumPad({
     setInternal(next);
     onValue(next);
   };
+
+  // Saisie au clavier physique : chiffres (rangée du haut et pavé
+  // numérique), retour arrière, Suppr (effacer tout), virgule/point,
+  // Entrée. Ignorée quand un champ de saisie a le focus (ex. référence
+  // MVola) pour ne pas doubler la frappe.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+      if (e.key >= '0' && e.key <= '9') {
+        e.preventDefault();
+        handleKey(e.key);
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        handleKey('⌫');
+      } else if (e.key === 'Delete') {
+        e.preventDefault();
+        handleKey('C');
+      } else if (e.key === ',' || e.key === '.') {
+        if (allowDecimal) {
+          e.preventDefault();
+          handleKey(',');
+        }
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        onEnter();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+    // handleKey lit `display` : réabonner à chaque changement de saisie
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [display, allowDecimal, onValue, onEnter]);
 
   const keys = [
     ['7', '8', '9'],

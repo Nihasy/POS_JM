@@ -200,6 +200,39 @@ test('deux ventes consécutives : la modale de paiement repart à zéro', async 
   await expect(page.getByText(/V-\d{4}-00002 enregistrée/)).toBeVisible({ timeout: 15_000 });
 });
 
+test('paiement saisi au clavier physique : montant + Entrée', async ({ page }) => {
+  await login(page);
+  await openSession(page, 50000);
+
+  await addToCart(page, 'Ampoule', 'Ampoule 9W');
+  await page.getByRole('button', { name: 'F10 Encaisser' }).click();
+
+  // Frappe directe au clavier : 5000 puis Entrée → rendu 2 000 Ar
+  await page.keyboard.type('5000');
+  await page.keyboard.press('Enter');
+  await expect(page.getByText(/Rendu/).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Encaisser', exact: true }).click();
+  await expect(page.getByText(/enregistrée/)).toBeVisible({ timeout: 15_000 });
+});
+
+test('la saisie clavier ne double pas dans le champ référence MVola', async ({ page }) => {
+  await login(page);
+  await openSession(page, 50000);
+
+  await addToCart(page, 'Ampoule', 'Ampoule 9W');
+  await page.getByRole('button', { name: 'F10 Encaisser' }).click();
+  await page.getByRole('button', { name: 'MVola' }).click();
+
+  // Taper des chiffres dans le champ référence ne doit PAS remplir le pavé
+  const refInput = page.getByPlaceholder('Référence MVola (obligatoire)');
+  await refInput.click();
+  await refInput.fill('');
+  await page.keyboard.type('123456');
+  await expect(refInput).toHaveValue('123456');
+  // Le pavé est resté à 0
+  await expect(page.locator('.font-mono.text-2xl')).toHaveText('0');
+});
+
 test('annulation du paiement : rien ne persiste à la réouverture', async ({ page }) => {
   await login(page);
   await openSession(page, 50000);

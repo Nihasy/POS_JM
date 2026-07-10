@@ -58,6 +58,22 @@ test('verrouillage après 5 tentatives échouées', async ({ page }) => {
   await expect(page.getByText(/verrouillé/i)).toBeVisible();
 });
 
+test('connexion au clavier physique : chiffres + Entrée', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Se connecter' })).toBeVisible({
+    timeout: 20_000,
+  });
+
+  // Frappe directe au clavier (pas de clic sur le pavé)
+  await page.keyboard.type('12349');
+  // Correction : retour arrière supprime le dernier chiffre
+  await page.keyboard.press('Backspace');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('button', { name: 'Catalogue' })).toBeVisible({
+    timeout: 15_000,
+  });
+});
+
 test('déconnexion → retour à l’écran PIN, panier vidé', async ({ page }) => {
   await login(page);
   await page.getByRole('button', { name: 'Déconnexion' }).click();
