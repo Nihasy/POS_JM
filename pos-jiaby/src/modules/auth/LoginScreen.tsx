@@ -87,6 +87,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
         {/* Pavé numérique */}
         <NumPad
+          value={pin}
           onValue={handlePinChange}
           onEnter={handleLogin}
           label="Code PIN"

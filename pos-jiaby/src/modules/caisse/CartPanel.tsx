@@ -1,6 +1,5 @@
 import { MontantAr, TierBadge } from '@/components';
 import { useCartStore } from './cartStore';
-import { formatQty } from '@/core/format';
 
 /**
  * Panneau du panier (colonne de droite de l'écran de vente).
@@ -16,6 +15,7 @@ export function CartPanel() {
     discountGlobalAmount,
     customerName,
     removeItem,
+    updateQuantity,
   } = useCartStore();
 
   return (
@@ -68,9 +68,18 @@ export function CartPanel() {
                     )}
                   </div>
                   <div className="flex items-center gap-3 text-xs text-encre-2 mt-0.5">
-                    <span className="font-mono">
-                      {formatQty(line.quantity)}
-                    </span>
+                    <input
+                      className="w-16 rounded border border-gray-200 px-1 py-0.5 text-right font-mono text-xs focus:border-neutre focus:outline-none"
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      aria-label={`Quantité ${line.name}`}
+                      value={String(line.quantity)}
+                      onChange={(e) => {
+                        const q = Number(e.target.value.replace(',', '.'));
+                        if (!Number.isNaN(q) && q > 0) updateQuantity(line.tempId, q);
+                      }}
+                    />
                     <span className="font-mono">×</span>
                     <MontantAr
                       value={line.appliedPrice}

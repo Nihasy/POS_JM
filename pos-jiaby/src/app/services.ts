@@ -55,6 +55,7 @@ export interface AppData {
   itemSales30d: Map<string, number>;
   itemSales90d: Map<string, number>;
   pendingSyncCount: number;
+  users: AppUser[];
 }
 
 /** Charge toutes les données nécessaires aux écrans. */
@@ -139,6 +140,7 @@ export async function loadAppData(db: Db): Promise<AppData> {
     itemSales30d: new Map(sales30.map((r) => [r.item_id, r.qty])),
     itemSales90d: new Map(sales90.map((r) => [r.item_id, r.qty])),
     pendingSyncCount: pendingRows[0]?.cnt ?? 0,
+    users: await listUsers(db),
   };
 }
 
@@ -1006,6 +1008,140 @@ export async function createSupplierTx(
     [id, params.name.trim(), params.phone, params.category]
   );
   return id;
+}
+
+// ─── Utilisateurs (admin.users) ────────────────────────────────────
+
+export interface AppUser {
+  id: UUID;
+  username: string;
+  full_name: string;
+  role: 'admin' | 'caissier';
+  failed_attempts: number;
+  locked_until: string | null;
+  deleted: number;
+}
+
+/** Liste des utilisateurs (sans les hash PIN), désactivés compris. */
+export async function listUsers(db: Db): Promise<AppUser[]> {
+  return db.select<AppUser>(
+    `SELECT id, username, full_name, role, failed_attempts, locked_until, deleted
+     FROM users ORDER BY username`
+  );
+}
+
+/**
+ * La connexion se fait par PIN seul : deux comptes actifs ne peuvent
+ * pas partager le même PIN, sinon l'un des deux devient injoignable.
+ */
+async function assertPinAvailable(db: Db, pin: string, excludeUserId?: UUID): Promise<void> {
+  const { verifyPin } = await import('@/modules/auth/pinHasher');
+  const rows = await db.select<{ id: UUID; pin_hash: string }>(
+    'SELECT id, pin_hash FROM users WHERE deleted = 0'
+  );
+  for (const row of rows) {
+    if (excludeUserId && row.id === excludeUserId) continue;
+    if (await verifyPin(pin, row.pin_hash)) {
+      throw new Error('Ce PIN est déjà utilisé par un autre compte.');
+    }
+  }
+}
+
+export async function createUserTx(
+  db: Db,
+  params: { username: string; fullName: string; role: 'admin' | 'caissier'; pin: string }
+): Promise<UUID> {
+  const username = params.username.trim().toLowerCase();
+  if (!username) throw new Error("Le nom d'utilisateur est obligatoire.");
+  if (!params.fullName.trim()) throw new Error('Le nom complet est obligatoire.');
+
+  const { validatePinFormat, hashPin } = await import('@/modules/auth/pinHasher');
+  const pinError = validatePinFormat(params.pin);
+  if (pinError) throw new Error(pinError);
+
+  const existing = await db.select<{ id: string }>(
+    'SELECT id FROM users WHERE username = ?',
+    [username]
+  );
+  if (existing.length > 0) {
+    throw new Error(`Le nom d'utilisateur « ${username} » existe déjà.`);
+  }
+
+  await assertPinAvailable(db, params.pin);
+  const pinHash = await hashPin(params.pin);
+  const id = crypto.randomUUID();
+
+  const { getGrantsForUser } = await import('@/core/db/seed');
+  await withTransaction(db, async (tx) => {
+    await tx.execute(
+      'INSERT INTO users (id, username, pin_hash, full_name, role) VALUES (?, ?, ?, ?, ?)',
+      [id, username, pinHash, params.fullName.trim(), params.role]
+    );
+    for (const grant of getGrantsForUser(id, params.role)) {
+      await tx.execute(
+        'INSERT OR IGNORE INTO user_grants (id, user_id, permission_id) VALUES (?, ?, ?)',
+        [grant.id, grant.user_id, grant.permission_id]
+      );
+    }
+  });
+  return id;
+}
+
+/** Change le PIN d'un compte (et déverrouille au passage). */
+export async function updateUserPinTx(
+  db: Db,
+  params: { userId: UUID; pin: string }
+): Promise<void> {
+  const { validatePinFormat, hashPin } = await import('@/modules/auth/pinHasher');
+  const pinError = validatePinFormat(params.pin);
+  if (pinError) throw new Error(pinError);
+
+  await assertPinAvailable(db, params.pin, params.userId);
+  const pinHash = await hashPin(params.pin);
+  await db.execute(
+    'UPDATE users SET pin_hash = ?, failed_attempts = 0, locked_until = NULL WHERE id = ?',
+    [pinHash, params.userId]
+  );
+}
+
+/**
+ * Active / désactive un compte (soft delete).
+ * Garde-fous : pas son propre compte, jamais le dernier Admin actif.
+ */
+export async function setUserActiveTx(
+  db: Db,
+  params: { userId: UUID; active: boolean; currentUserId: UUID }
+): Promise<void> {
+  if (!params.active) {
+    if (params.userId === params.currentUserId) {
+      throw new Error('Impossible de désactiver votre propre compte.');
+    }
+    const target = await db.select<{ role: string }>(
+      'SELECT role FROM users WHERE id = ?',
+      [params.userId]
+    );
+    if (target[0]?.role === 'admin') {
+      const admins = await db.select<{ cnt: number }>(
+        "SELECT COUNT(*) as cnt FROM users WHERE role = 'admin' AND deleted = 0 AND id != ?",
+        [params.userId]
+      );
+      if ((admins[0]?.cnt ?? 0) === 0) {
+        throw new Error('Impossible de désactiver le dernier compte Admin.');
+      }
+    }
+  }
+  await db.execute('UPDATE users SET deleted = ? WHERE id = ?', [
+    params.active ? 0 : 1,
+    params.userId,
+  ]);
+}
+
+/** Déverrouille un compte bloqué après 5 échecs. */
+export async function unlockUserTx(db: Db, userId: UUID): Promise<void> {
+  await db.execute(
+    'UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = ?',
+    [userId]
+  );
 }
 
 // ─── Synchronisation (Phase 5) ─────────────────────────────────────

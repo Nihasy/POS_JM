@@ -102,10 +102,22 @@ const CAISSIER_PERMISSIONS = [
 ];
 
 export function getCaissierGrants(): { id: UUID; user_id: UUID; permission_id: UUID }[] {
+  return getGrantsForUser('b0000001-0001-4000-8000-000000000002', 'caissier');
+}
+
+/**
+ * Grants d'un utilisateur selon son rôle (création via l'écran Utilisateurs).
+ */
+export function getGrantsForUser(
+  userId: UUID,
+  role: 'admin' | 'caissier'
+): { id: UUID; user_id: UUID; permission_id: UUID }[] {
   const permMap = new Map(SEED_PERMISSIONS.map((p) => [p.module_id, p.id]));
-  return CAISSIER_PERMISSIONS.map((moduleId) => ({
+  const moduleIds =
+    role === 'admin' ? SEED_PERMISSIONS.map((p) => p.module_id) : CAISSIER_PERMISSIONS;
+  return moduleIds.map((moduleId) => ({
     id: crypto.randomUUID(),
-    user_id: 'b0000001-0001-4000-8000-000000000002',
+    user_id: userId,
     permission_id: permMap.get(moduleId)!,
   }));
 }

@@ -6,6 +6,7 @@ import { seedDemoData } from '@/core/db/demoData';
 import { useAuthStore } from '@/modules/auth/authStore';
 import { authenticate, hasPermission } from '@/modules/auth/authService';
 import { LoginScreen } from '@/modules/auth/LoginScreen';
+import { UsersScreen } from '@/modules/auth/UsersScreen';
 import {
   SalesScreen,
   CustomerSelect,
@@ -42,21 +43,33 @@ import {
   createItemTx,
   updateItemTx,
   deleteItemTx,
+  createUserTx,
+  updateUserPinTx,
+  setUserActiveTx,
+  unlockUserTx,
   runSync,
   type AppData,
   type SuspendedSale,
 } from './services';
 
-type View = 'caisse' | 'catalogue' | 'stock' | 'clients' | 'cashup' | 'rapports';
+type View =
+  | 'caisse'
+  | 'catalogue'
+  | 'stock'
+  | 'clients'
+  | 'cashup'
+  | 'rapports'
+  | 'utilisateurs';
 type StockTab = 'reception' | 'inventaire';
 
-const NAV: { view: View; label: string; key: string }[] = [
+const NAV: { view: View; label: string; key: string; adminOnly?: boolean }[] = [
   { view: 'caisse', label: 'Caisse', key: '1' },
   { view: 'catalogue', label: 'Catalogue', key: '2' },
   { view: 'stock', label: 'Stock', key: '3' },
   { view: 'clients', label: 'Clients', key: '4' },
   { view: 'cashup', label: 'Session', key: '5' },
   { view: 'rapports', label: 'Rapports', key: '6' },
+  { view: 'utilisateurs', label: 'Utilisateurs', key: '7', adminOnly: true },
 ];
 
 export function App() {
@@ -484,6 +497,52 @@ export function App() {
     [db, user, notify, refresh]
   );
 
+  // ─── Utilisateurs (Admin) ────────────────────────────────────────
+  const handleCreateUser = useCallback(
+    async (params: {
+      username: string;
+      fullName: string;
+      role: 'admin' | 'caissier';
+      pin: string;
+    }) => {
+      if (!db) return;
+      await createUserTx(db, params);
+      notify(`Utilisateur « ${params.username.trim().toLowerCase()} » créé.`);
+      await refresh();
+    },
+    [db, notify, refresh]
+  );
+
+  const handleChangeUserPin = useCallback(
+    async (userId: string, pin: string) => {
+      if (!db) return;
+      await updateUserPinTx(db, { userId, pin });
+      notify('PIN modifié.');
+      await refresh();
+    },
+    [db, notify, refresh]
+  );
+
+  const handleSetUserActive = useCallback(
+    async (userId: string, active: boolean) => {
+      if (!db || !user) return;
+      await setUserActiveTx(db, { userId, active, currentUserId: user.id });
+      notify(active ? 'Compte réactivé.' : 'Compte désactivé.');
+      await refresh();
+    },
+    [db, user, notify, refresh]
+  );
+
+  const handleUnlockUser = useCallback(
+    async (userId: string) => {
+      if (!db) return;
+      await unlockUserTx(db, userId);
+      notify('Compte déverrouillé.');
+      await refresh();
+    },
+    [db, notify, refresh]
+  );
+
   // ─── Sauvegarde manuelle (Admin) ─────────────────────────────────
   const handleBackup = useCallback(async () => {
     try {
@@ -533,7 +592,7 @@ export function App() {
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-bold text-encre">JIABY POS</h1>
           <nav className="flex gap-1">
-            {NAV.map((n) => (
+            {NAV.filter((n) => !n.adminOnly || isAdmin).map((n) => (
               <button
                 key={n.view}
                 onClick={() => setView(n.view)}
@@ -582,6 +641,7 @@ export function App() {
           <button
             onClick={() => {
               cartStore.clearCart();
+              setView('caisse');
               logout();
             }}
             className="rounded px-2 py-1 text-xs text-encre-2 hover:bg-gray-100 touch-target"
@@ -627,6 +687,7 @@ export function App() {
               <CatalogueScreen
                 items={data.items}
                 categories={data.categories}
+                stockLevels={data.stockLevels}
                 onCreateItem={async (form) => {
                   await createItemTx(db, form);
                   await refresh();
@@ -711,6 +772,22 @@ export function App() {
                 onAddExpense={handleAddExpense}
               />
             )}
+
+            {view === 'utilisateurs' &&
+              (isAdmin ? (
+                <UsersScreen
+                  users={data.users}
+                  currentUserId={user.id}
+                  onCreateUser={handleCreateUser}
+                  onChangePin={handleChangeUserPin}
+                  onSetActive={handleSetUserActive}
+                  onUnlock={handleUnlockUser}
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <p className="text-encre-2">Écran réservé au profil Admin.</p>
+                </div>
+              ))}
 
             {view === 'rapports' && (
               <ReportsScreen

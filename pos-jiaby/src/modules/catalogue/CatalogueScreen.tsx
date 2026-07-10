@@ -7,6 +7,7 @@ import { formatQty } from '@/core/format';
 interface CatalogueScreenProps {
   items: Item[];
   categories: Category[];
+  stockLevels: Map<string, number>;
   onCreateItem: (data: ReturnType<typeof getFormData>) => Promise<void>;
   onUpdateItem: (id: string, data: ReturnType<typeof getFormData>) => Promise<void>;
   onDeleteItem: (id: string) => Promise<void>;
@@ -42,6 +43,7 @@ function getFormData(form: Parameters<Parameters<typeof ItemForm>[0]['onSave']>[
 export function CatalogueScreen({
   items,
   categories,
+  stockLevels,
   onCreateItem,
   onUpdateItem,
   onDeleteItem,
@@ -129,7 +131,10 @@ export function CatalogueScreen({
           </p>
         ) : (
           <div className="space-y-1">
-            {filtered.map((item) => (
+            {filtered.map((item) => {
+              const stock = stockLevels.get(item.id) ?? 0;
+              const lowStock = item.reorder_level !== null && stock <= item.reorder_level;
+              return (
               <div
                 key={item.id}
                 className="flex items-center gap-3 rounded-lg bg-carte px-4 py-3 shadow-sm hover:bg-gray-50 cursor-pointer"
@@ -153,7 +158,7 @@ export function CatalogueScreen({
                     <span>
                       Stock:{' '}
                       <span className="font-mono font-semibold text-encre">
-                        {formatQty(0)}
+                        {formatQty(stock)}
                       </span>{' '}
                       {item.unit_name}
                     </span>
@@ -182,7 +187,7 @@ export function CatalogueScreen({
                 </div>
 
                 {/* Stock faible alerte */}
-                {item.reorder_level !== null && 0 <= item.reorder_level && (
+                {lowStock && (
                   <span className="text-xs text-alerte" title="Stock bas">
                     ⚠
                   </span>
@@ -210,7 +215,8 @@ export function CatalogueScreen({
                   </button>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

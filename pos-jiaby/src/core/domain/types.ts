@@ -226,6 +226,12 @@ export interface CartLine {
   lineTotal: number; // après prix, remise
   tierApplied: 'detail' | 'semi-gros' | 'gros' | null;
   isKit: boolean;
+  // Paliers de l'article — nécessaires pour recalculer le palier
+  // quand la quantité change dans le panier (vente au mètre, S09–S11)
+  priceSemiGros?: number | null;
+  priceGros?: number | null;
+  qtySemiGros?: number | null;
+  qtyGros?: number | null;
 }
 
 export interface CartPayment {

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { MontantAr, NumPad } from '@/components';
 import { useCartStore } from './cartStore';
 import type { PaymentMethod, CartPayment } from '@/core/domain/types';
@@ -26,6 +26,18 @@ export function PaymentModal({ open, onClose, onFinalize, allowCredit }: Payment
   const [amountStr, setAmountStr] = useState('');
   const [mvolaRef, setMvolaRef] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // Repartir d'un état vierge à chaque ouverture — sinon les paiements
+  // d'une vente précédente (ou annulée) resteraient comptés.
+  useEffect(() => {
+    if (open) {
+      setPayments([]);
+      setActiveMethod('ESPECES');
+      setAmountStr('');
+      setMvolaRef('');
+      setError(null);
+    }
+  }, [open]);
 
   // Total payé
   const paidTotal = useMemo(
@@ -99,7 +111,7 @@ export function PaymentModal({ open, onClose, onFinalize, allowCredit }: Payment
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-10">
-      <div className="w-full max-w-md rounded-lg bg-carte shadow-xl liseré-terre">
+      <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-lg bg-carte shadow-xl liseré-terre">
         {/* En-tête */}
         <div className="flex items-center justify-between border-b px-6 py-4">
           <h2 className="text-lg font-semibold text-encre">Paiement</h2>
@@ -162,6 +174,7 @@ export function PaymentModal({ open, onClose, onFinalize, allowCredit }: Payment
 
               {/* Saisie du montant */}
               <NumPad
+                value={amountStr}
                 onValue={setAmountStr}
                 onEnter={handleAddPayment}
                 allowDecimal={false}

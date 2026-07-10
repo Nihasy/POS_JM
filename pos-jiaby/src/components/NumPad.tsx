@@ -5,6 +5,8 @@ interface NumPadProps {
   onEnter: () => void;
   allowDecimal?: boolean;
   label?: string;
+  /** Mode contrôlé : l'affichage suit cette valeur (reset possible par le parent). */
+  value?: string;
 }
 
 /**
@@ -19,8 +21,10 @@ export function NumPad({
   onEnter,
   allowDecimal = false,
   label = 'Saisie',
+  value,
 }: NumPadProps) {
-  const [display, setDisplay] = useState('');
+  const [internal, setInternal] = useState('');
+  const display = value !== undefined ? value : internal;
 
   const handleKey = (key: string) => {
     let next = display;
@@ -38,7 +42,7 @@ export function NumPad({
       next = display + key;
     }
 
-    setDisplay(next);
+    setInternal(next);
     onValue(next);
   };
 

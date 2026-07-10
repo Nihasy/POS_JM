@@ -132,6 +132,10 @@ export const useCartStore = create<CartState>((set, get) => ({
         lineTotal: result.lineTotal,
         tierApplied: result.tierApplied,
         isKit: params.isKit ?? false,
+        priceSemiGros: params.priceSemiGros ?? null,
+        priceGros: params.priceGros ?? null,
+        qtySemiGros: params.qtySemiGros ?? null,
+        qtyGros: params.qtyGros ?? null,
       };
 
       set({ lines: [...lines, newLine] });
@@ -150,10 +154,17 @@ export const useCartStore = create<CartState>((set, get) => ({
     const line = lines.find((l) => l.tempId === tempId);
     if (!line) return;
 
+    // Prix négocié = override manuel (tierApplied null) ; un prix de palier
+    // doit être recalculé selon la nouvelle quantité, pas figé.
+    const isNegotiated = line.tierApplied === null && line.appliedPrice !== line.unitPrice;
     const result = lineTotal({
       quantity,
       sellingPrice: line.unitPrice,
-      negotiatedPrice: line.appliedPrice !== line.unitPrice ? line.appliedPrice : undefined,
+      priceSemiGros: line.priceSemiGros,
+      priceGros: line.priceGros,
+      qtySemiGros: line.qtySemiGros,
+      qtyGros: line.qtyGros,
+      negotiatedPrice: isNegotiated ? line.appliedPrice : undefined,
       discountPercent: line.discountPercent,
       discountAmount: line.discountAmount,
     });
@@ -161,7 +172,13 @@ export const useCartStore = create<CartState>((set, get) => ({
     set({
       lines: lines.map((l) =>
         l.tempId === tempId
-          ? { ...l, quantity, lineTotal: result.lineTotal, tierApplied: result.tierApplied }
+          ? {
+              ...l,
+              quantity,
+              appliedPrice: result.appliedPrice,
+              lineTotal: result.lineTotal,
+              tierApplied: result.tierApplied,
+            }
           : l
       ),
     });
