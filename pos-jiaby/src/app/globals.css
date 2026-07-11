@@ -85,6 +85,11 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Tous les chiffres en mono s'alignent en colonnes (tableaux, stocks) */
+.font-mono {
+  font-variant-numeric: tabular-nums;
+}
+
 .total-vente {
   font-family: var(--font-mono);
   font-size: 38px;

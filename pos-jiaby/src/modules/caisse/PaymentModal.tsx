@@ -164,39 +164,40 @@ export function PaymentModal({ open, onClose, onFinalize, allowCredit }: Payment
             )}
           </div>
 
-          {/* Total à payer */}
-          <div className="text-center">
-            <p className="text-sm text-encre-2">Total à payer</p>
-            <MontantAr value={total} total />
+          {/* Total à payer — bandeau contrasté */}
+          <div className="rounded-lg bg-encre px-4 py-3 text-center">
+            <p className="text-xs font-semibold uppercase tracking-wide text-white/70">
+              Total à payer
+            </p>
+            <MontantAr value={total} total className="text-white" />
           </div>
 
           {/* Déjà payé / Reste */}
           {payments.length > 0 && (
-            <div className="flex justify-between text-sm">
+            <div className="flex items-baseline justify-between text-sm">
               <span className="text-encre-2">Payé</span>
               <MontantAr value={paidTotal} />
             </div>
           )}
           {remaining > 0 && paidTotal > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-alerte">Reste à payer</span>
-              <MontantAr value={remaining} />
+            <div className="flex items-baseline justify-between rounded bg-amber-50 px-3 py-1.5">
+              <span className="text-sm font-semibold text-alerte">Reste à payer</span>
+              <MontantAr value={remaining} className="text-lg font-bold text-alerte" />
             </div>
           )}
 
           {/* Rendu */}
           {change && change > 0 && (
-            <div className="rounded bg-green-50 px-3 py-2 text-center">
-              <span className="text-sm font-semibold text-especes">
-                Rendu : <MontantAr value={change} />
-              </span>
+            <div className="rounded-lg bg-green-50 px-3 py-2 text-center">
+              <span className="text-sm font-semibold text-especes">Rendu : </span>
+              <MontantAr value={change} className="text-xl font-bold text-especes" />
             </div>
           )}
 
           {/* Méthodes de paiement */}
           {remaining > 0 && (
             <>
-              <div className="flex gap-1">
+              <div className="flex gap-1.5">
                 {PAYMENT_METHODS.map((m) => (
                   <button
                     key={m.method}
@@ -204,8 +205,12 @@ export function PaymentModal({ open, onClose, onFinalize, allowCredit }: Payment
                       setActiveMethod(m.method);
                       setError(null);
                     }}
-                    className={`flex-1 rounded px-2 py-2 text-sm font-medium touch-target
-                      ${activeMethod === m.method ? `${m.color} text-white` : 'bg-gray-100 text-encre-2 hover:bg-gray-200'}
+                    className={`flex-1 rounded-lg px-2 py-3 text-sm font-semibold touch-target
+                      ${
+                        activeMethod === m.method
+                          ? `${m.color} text-white shadow-sm`
+                          : 'border border-gray-200 bg-white text-encre-2 hover:bg-gray-50'
+                      }
                       ${m.method === 'CREDIT' && !allowCredit ? 'opacity-50 cursor-not-allowed' : ''}
                     `}
                     disabled={m.method === 'CREDIT' && !allowCredit}

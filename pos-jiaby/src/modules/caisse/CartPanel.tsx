@@ -153,10 +153,12 @@ export function CartPanel() {
           </div>
         )}
 
-        {/* Total */}
-        <div className="flex justify-between items-baseline">
-          <span className="text-lg font-bold text-encre">TOTAL</span>
-          <MontantAr value={total} total />
+        {/* Total — bandeau contrasté, lisible de loin */}
+        <div className="flex items-baseline justify-between rounded-lg bg-encre px-4 py-2">
+          <span className="text-base font-bold uppercase tracking-wide text-white">
+            Total
+          </span>
+          <MontantAr value={total} total className="text-white" />
         </div>
       </div>
     </div>

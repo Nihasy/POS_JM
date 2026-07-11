@@ -222,19 +222,21 @@ export function SalesScreen({
                     <button
                       key={item.id}
                       onClick={() => handleAddToCart(item)}
-                      className="flex flex-col rounded-lg bg-carte p-3 text-left shadow-sm hover:bg-blue-50 hover:shadow-md transition-colors touch-target"
+                      className="flex flex-col rounded-lg border border-gray-200 bg-carte p-3 text-left shadow-sm transition-colors hover:border-neutre hover:bg-blue-50 hover:shadow-md touch-target"
                     >
-                      <span className="text-sm font-semibold text-encre truncate">
+                      <span className="text-sm font-semibold leading-tight text-encre">
                         {item.short_name || item.name}
                       </span>
-                      <div className="mt-1 flex items-center justify-between">
+                      <div className="mt-2 flex items-end justify-between gap-2">
                         <MontantAr
                           value={item.selling_price}
-                          className="text-sm"
+                          className="text-lg font-bold leading-none"
                         />
                         <span
-                          className={`text-xs font-mono ${
-                            lowStock ? 'text-alerte font-semibold' : 'text-encre-2'
+                          className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[0.7rem] font-semibold ${
+                            lowStock
+                              ? 'bg-amber-100 text-alerte'
+                              : 'bg-gray-100 text-encre-2'
                           }`}
                         >
                           {lowStock && '⚠ '}
@@ -243,15 +245,15 @@ export function SalesScreen({
                       </div>
                       {/* Paliers visibles */}
                       {(item.price_semi_gros || item.price_gros) && (
-                        <div className="mt-1 flex gap-1 text-[0.625rem]">
+                        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-[0.65rem]">
                           {item.price_semi_gros && (
                             <span className="text-neutre">
-                              Semi-gros: {item.price_semi_gros} Ar
+                              ≥{item.qty_semi_gros} : {item.price_semi_gros} Ar
                             </span>
                           )}
                           {item.price_gros && (
                             <span className="text-especes">
-                              Gros: {item.price_gros} Ar
+                              ≥{item.qty_gros} : {item.price_gros} Ar
                             </span>
                           )}
                         </div>
@@ -279,19 +281,19 @@ export function SalesScreen({
             <div className="mt-3 flex gap-2">
               <button
                 onClick={onSuspend}
-                className="flex-1 rounded-lg border border-gray-300 bg-carte py-2 text-sm font-medium text-encre-2 hover:bg-gray-50 touch-target"
+                className="rounded-lg border border-gray-300 bg-carte px-4 py-3 text-sm font-medium text-encre-2 hover:bg-gray-50 touch-target"
               >
                 F8 Suspendre
               </button>
               <button
                 onClick={onQuote}
-                className="flex-1 rounded-lg border border-neutre bg-carte py-2 text-sm font-medium text-neutre hover:bg-blue-50 touch-target"
+                className="rounded-lg border border-neutre bg-carte px-4 py-3 text-sm font-medium text-neutre hover:bg-blue-50 touch-target"
               >
                 Devis
               </button>
               <button
                 onClick={() => setShowPayment(true)}
-                className="flex-1 rounded-lg bg-especes py-2 text-sm font-bold text-white hover:bg-green-700 touch-target"
+                className="flex-1 rounded-lg bg-especes py-3 text-base font-bold text-white shadow-sm hover:bg-green-700 active:scale-[0.99] touch-target"
               >
                 F10 Encaisser
               </button>

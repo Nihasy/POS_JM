@@ -107,8 +107,8 @@ export function NumPad({
         {masked ? '•'.repeat(display.length) || '·' : display || '0'}
       </div>
 
-      {/* Grille de touches */}
-      <div className="grid grid-cols-3 gap-1">
+      {/* Grille de touches — grandes cibles (tactile + rapidité) */}
+      <div className="grid grid-cols-3 gap-1.5">
         {keys.map((row, ri) =>
           row.map((key, ki) => {
             const isEnter = key === '↵';
@@ -124,7 +124,7 @@ export function NumPad({
                 <button
                   key={`enter-${ri}`}
                   onClick={onEnter}
-                  className="col-span-2 touch-target rounded bg-neutre text-lg font-bold text-white hover:bg-blue-700 active:bg-blue-800"
+                  className="col-span-2 touch-target rounded-lg bg-neutre py-2.5 text-xl font-bold text-white hover:bg-blue-700 active:bg-blue-800"
                 >
                   ↵
                 </button>
@@ -135,10 +135,10 @@ export function NumPad({
               <button
                 key={`${ri}-${ki}`}
                 onClick={() => handleKey(key!)}
-                className={`touch-target rounded text-lg font-semibold
+                className={`touch-target rounded-lg py-2.5 font-mono text-xl font-semibold active:scale-95
                   ${isClear ? 'bg-red-100 text-red-600 hover:bg-red-200' : ''}
                   ${isBackspace ? 'bg-gray-100 text-encre-2 hover:bg-gray-200' : ''}
-                  ${!isClear && !isBackspace ? 'bg-white text-encre hover:bg-gray-50 border border-gray-200' : ''}
+                  ${!isClear && !isBackspace ? 'border border-gray-200 bg-white text-encre shadow-sm hover:bg-gray-50' : ''}
                 `}
               >
                 {key}
