@@ -170,6 +170,28 @@ export async function authenticate(
 }
 
 /**
+ * Vérifie un PIN contre les comptes Admin actifs — SANS toucher aux
+ * compteurs d'échec ni au verrouillage. À utiliser pour les
+ * autorisations ponctuelles (retours S26), jamais pour le login :
+ * authenticate() incrémente failed_attempts sur TOUS les comptes en
+ * cas d'échec, ce qui verrouillerait toute la boutique depuis la
+ * modale de retour.
+ */
+export async function verifyAdminPin(
+  db: { select<T>(sql: string, params?: unknown[]): Promise<T[]> },
+  pin: string
+): Promise<boolean> {
+  const { verifyPin } = await import('./pinHasher');
+  const rows = await db.select<{ pin_hash: string }>(
+    "SELECT pin_hash FROM users WHERE role = 'admin' AND deleted = 0"
+  );
+  for (const row of rows) {
+    if (await verifyPin(pin, row.pin_hash)) return true;
+  }
+  return false;
+}
+
+/**
  * Liste des modules et permissions (grille OSPOS).
  */
 export const PERMISSIONS = {

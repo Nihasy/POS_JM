@@ -337,7 +337,7 @@ La session est archivée avec l'attendu, le compté et l'écart. Il faudra rouvr
 - **+ Nouvel utilisateur** : identifiant, nom complet, rôle (Caissier ou Admin), PIN + confirmation. **Chaque PIN doit être unique** (la connexion se fait par PIN seul) — un PIN déjà pris est refusé.
 - **Changer PIN** : nouveau PIN + confirmation. Déverrouille le compte au passage. À utiliser aussi si quelqu'un a oublié son PIN.
 - **Désactiver** : le compte ne peut plus se connecter (l'historique de ses ventes reste). Impossible de désactiver **son propre compte** ou **le dernier Admin**.
-- **Réactiver** : rétablit un compte désactivé.
+- **Réactiver** : rétablit un compte désactivé en lui définissant un **nouveau PIN** (obligatoire — son ancien PIN a pu être attribué à quelqu'un d'autre entre-temps).
 - **Déverrouiller** : lève immédiatement le blocage « 5 échecs ».
 
 **Bonnes pratiques** : un compte par personne (les ventes, retours et ajustements sont tracés par utilisateur) ; PIN confidentiels ; désactivez le compte d'un employé qui part.

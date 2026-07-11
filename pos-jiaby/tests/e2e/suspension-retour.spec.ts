@@ -125,6 +125,26 @@ test('retour refusé avec un PIN non admin (S26)', async ({ page }) => {
   await page.getByPlaceholder('PIN Admin (obligatoire pour un retour)').fill('9999');
   await page.getByRole('button', { name: 'Valider le retour' }).click();
   await expect(page.getByText(/PIN admin invalide/)).toBeVisible({ timeout: 15_000 });
+
+  // UR-1 : 5 PIN erronés dans la modale de retour ne doivent PAS
+  // verrouiller les comptes de la boutique (contrairement au login)
+  for (let i = 0; i < 4; i++) {
+    await page.getByPlaceholder('PIN Admin (obligatoire pour un retour)').fill('0000');
+    await page.getByRole('button', { name: 'Valider le retour' }).click();
+    await expect(page.getByText(/PIN admin invalide/)).toBeVisible({ timeout: 15_000 });
+  }
+  await page.keyboard.press('Escape');
+
+  // La connexion reste immédiatement possible
+  await page.getByRole('button', { name: 'Déconnexion' }).click();
+  for (const d of '1234') {
+    await page.getByRole('button', { name: d, exact: true }).click();
+  }
+  await page.getByRole('button', { name: 'Se connecter' }).click();
+  await expect(page.getByRole('button', { name: 'Catalogue' })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByText(/verrouillé/i)).toHaveCount(0);
 });
 
 test('retour introuvable et retour sur avoir refusés', async ({ page }) => {

@@ -585,8 +585,28 @@ export async function recallSaleTx(
     throw new Error('Panier suspendu introuvable.');
   }
 
-  const items = await db.select<SaleItem>(
-    'SELECT * FROM sales_items WHERE sale_id = ?',
+  // JOIN items : les paliers et l'unité de l'article doivent être
+  // réhydratés sur la ligne, sinon le premier changement de quantité
+  // après rappel retomberait au prix détail (paliers inconnus) et les
+  // décimales seraient refusées (unité inconnue).
+  const items = await db.select<
+    SaleItem & {
+      i_price_semi_gros: number | null;
+      i_price_gros: number | null;
+      i_qty_semi_gros: number | null;
+      i_qty_gros: number | null;
+      i_unit_name: string | null;
+    }
+  >(
+    `SELECT si.*,
+            i.price_semi_gros AS i_price_semi_gros,
+            i.price_gros      AS i_price_gros,
+            i.qty_semi_gros   AS i_qty_semi_gros,
+            i.qty_gros        AS i_qty_gros,
+            i.unit_name       AS i_unit_name
+     FROM sales_items si
+     LEFT JOIN items i ON i.id = si.item_id
+     WHERE si.sale_id = ?`,
     [saleId]
   );
 
@@ -602,6 +622,11 @@ export async function recallSaleTx(
     lineTotal: item.line_total,
     tierApplied: item.tier_applied,
     isKit: false,
+    priceSemiGros: item.i_price_semi_gros,
+    priceGros: item.i_price_gros,
+    qtySemiGros: item.i_qty_semi_gros,
+    qtyGros: item.i_qty_gros,
+    unitName: item.i_unit_name ?? undefined,
   }));
 
   // Un panier suspendu (non-devis) est consommé au rappel
@@ -677,6 +702,14 @@ export async function returnSaleTx(
   );
   const alreadyReturned = new Map(prevRows.map((r) => [r.item_id, r.qty]));
 
+  // Remise globale de la vente d'origine : line_total est stocké AVANT
+  // cette remise (sale.total = subtotal − remise). Le remboursement
+  // doit refléter ce que le client a réellement payé, au prorata.
+  const discountRatio =
+    params.originalSale.subtotal > 0
+      ? params.originalSale.total / params.originalSale.subtotal
+      : 1;
+
   const lines: CartLine[] = params.returnLines.map(({ item, quantity }) => {
     const remaining = item.quantity - (alreadyReturned.get(item.item_id) ?? 0);
     if (quantity <= 0 || quantity > item.quantity) {
@@ -689,8 +722,11 @@ export async function returnSaleTx(
         }, restant ${Math.max(0, remaining)}.`
       );
     }
-    // Prix appliqué d'origine, remises comprises : total au prorata
-    const lineTotal = Math.round((item.line_total / item.quantity) * quantity);
+    // Prix appliqué d'origine, remises comprises (ligne ET globale) :
+    // total au prorata de la quantité et de la remise globale
+    const lineTotal = Math.round(
+      (item.line_total / item.quantity) * quantity * discountRatio
+    );
     return {
       tempId: crypto.randomUUID(),
       itemId: item.item_id,
@@ -1202,7 +1238,7 @@ export async function importCatalogueTx(
           id, item_number, name, short_name, category_id, supplier_id, unit_name, pack_name,
           qty_per_pack, cost_price, selling_price, qty_semi_gros, price_semi_gros,
           qty_gros, price_gros, reorder_level, receiving_quantity, photo_path, deleted
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, 0)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, 0)`,
         [itemId, itemNumber, row.name, row.shortName, categoryId, supplierId,
          row.unitName, row.packName, row.qtyPerPack, row.costPrice, row.sellingPrice,
          row.qtySemiGros, row.priceSemiGros, row.qtyGros, row.priceGros, row.reorderLevel]
@@ -1368,6 +1404,30 @@ export async function setUserActiveTx(
     params.active ? 0 : 1,
     params.userId,
   ]);
+}
+
+/**
+ * Réactive un compte désactivé en définissant un NOUVEAU PIN.
+ * Le PIN de l'ancien compte était invisible au contrôle d'unicité
+ * pendant sa désactivation (assertPinAvailable filtre deleted = 0) :
+ * exiger un nouveau PIN vérifié garantit l'invariant « un PIN = un
+ * compte actif » sur tous les chemins.
+ */
+export async function reactivateUserTx(
+  db: Db,
+  params: { userId: UUID; pin: string }
+): Promise<void> {
+  const { validatePinFormat, hashPin } = await import('@/modules/auth/pinHasher');
+  const pinError = validatePinFormat(params.pin);
+  if (pinError) throw new Error(pinError);
+
+  await assertPinAvailable(db, params.pin, params.userId);
+  const pinHash = await hashPin(params.pin);
+  await db.execute(
+    `UPDATE users SET pin_hash = ?, deleted = 0, failed_attempts = 0, locked_until = NULL
+     WHERE id = ?`,
+    [pinHash, params.userId]
+  );
 }
 
 /** Déverrouille un compte bloqué après 5 échecs. */

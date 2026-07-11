@@ -4,7 +4,7 @@ import { openDatabase, backupDatabase, isTauri, type Db } from '@/core/db';
 import { runSeed } from '@/core/db/seed';
 import { seedDemoData } from '@/core/db/demoData';
 import { useAuthStore } from '@/modules/auth/authStore';
-import { authenticate, hasPermission } from '@/modules/auth/authService';
+import { authenticate, verifyAdminPin, hasPermission } from '@/modules/auth/authService';
 import { LoginScreen } from '@/modules/auth/LoginScreen';
 import { UsersScreen } from '@/modules/auth/UsersScreen';
 import {
@@ -48,6 +48,7 @@ import {
   createUserTx,
   updateUserPinTx,
   setUserActiveTx,
+  reactivateUserTx,
   unlockUserTx,
   importCatalogueTx,
   runSync,
@@ -369,9 +370,10 @@ export function App() {
       adminPin: string;
     }) => {
       if (!db || !user) return;
-      // Les retours exigent un PIN admin (S26)
-      const auth = await authenticate(db, params.adminPin);
-      if (!auth.success || auth.user?.role !== 'admin') {
+      // Les retours exigent un PIN admin (S26). verifyAdminPin ne
+      // touche pas aux compteurs d'échec : un mauvais PIN ici ne doit
+      // jamais verrouiller les comptes de la boutique.
+      if (!(await verifyAdminPin(db, params.adminPin))) {
         throw new Error('PIN admin invalide — retour refusé.');
       }
       const result = await returnSaleTx(db, {
@@ -572,6 +574,16 @@ export function App() {
       await refresh();
     },
     [db, user, notify, refresh]
+  );
+
+  const handleReactivateUser = useCallback(
+    async (userId: string, pin: string) => {
+      if (!db) return;
+      await reactivateUserTx(db, { userId, pin });
+      notify('Compte réactivé avec son nouveau PIN.');
+      await refresh();
+    },
+    [db, notify, refresh]
   );
 
   const handleUnlockUser = useCallback(
@@ -830,6 +842,7 @@ export function App() {
                   currentUserId={user.id}
                   onCreateUser={handleCreateUser}
                   onChangePin={handleChangeUserPin}
+                  onReactivate={handleReactivateUser}
                   onSetActive={handleSetUserActive}
                   onUnlock={handleUnlockUser}
                 />

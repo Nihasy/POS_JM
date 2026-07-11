@@ -8,10 +8,10 @@ import { login } from './helpers';
  */
 
 const CSV = [
-  'nom;nom_court;categorie;fournisseur;unite;prix_detail;cout;qte_semi_gros;prix_semi_gros;stock_initial',
-  'Perceuse 500W;Perceuse;Outillage;Grossiste Tana;pièce;85000;60000;;;10',
-  'Fil 1,5mm²;Fil 1,5;Câbles et cordons;Grossiste Tana;m;2500;1500;20;2200;300',
-  'Ligne cassée;;;;pièce;pas_un_prix;;;;',
+  'nom;nom_court;categorie;fournisseur;unite;prix_detail;cout;qte_semi_gros;prix_semi_gros;seuil_reappro;stock_initial',
+  'Perceuse 500W;Perceuse;Outillage;Grossiste Tana;pièce;85000;60000;;;15;10',
+  'Fil 1,5mm²;Fil 1,5;Câbles et cordons;Grossiste Tana;m;2500;1500;20;2200;;300',
+  'Ligne cassée;;;;pièce;pas_un_prix;;;;;',
 ].join('\n');
 
 test('import CSV : aperçu, erreurs ignorées, produits créés avec stock initial', async ({
@@ -44,6 +44,9 @@ test('import CSV : aperçu, erreurs ignorées, produits créés avec stock initi
   await expect(perceuse).toBeVisible({ timeout: 15_000 });
   await expect(perceuse).toContainText(/OUTI-PERC-\d{3}/);
   await expect(perceuse).toContainText('Stock: 10');
+  // UR-2 : le seuil_reappro du CSV est persisté → alerte stock bas
+  // (stock 10 ≤ seuil 15)
+  await expect(perceuse.getByTitle('Stock bas')).toBeVisible();
 
   const fil = page.getByRole('button', { name: /Modifier Fil 1,5mm²/ });
   await expect(fil).toContainText('Stock: 300');

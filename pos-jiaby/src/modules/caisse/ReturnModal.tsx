@@ -77,8 +77,13 @@ export function ReturnModal({ open, onClose, onSearchSale, onReturn }: ReturnMod
         .filter((l): l is NonNullable<typeof l> => l !== null)
     : [];
 
+  // Même prorata que le service : la remise globale de la vente
+  // d'origine s'applique au remboursement (line_total est pré-remise).
+  const discountRatio =
+    found && found.sale.subtotal > 0 ? found.sale.total / found.sale.subtotal : 1;
   const refundTotal = selectedLines.reduce(
-    (s, { item, quantity }) => s + Math.round((item.line_total / item.quantity) * quantity),
+    (s, { item, quantity }) =>
+      s + Math.round((item.line_total / item.quantity) * quantity * discountRatio),
     0
   );
 

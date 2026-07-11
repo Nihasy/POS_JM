@@ -150,24 +150,49 @@ test('désactivation : connexion bloquée, puis réactivation', async ({ page })
   await loginWithPin(page, '5678');
   await expect(page.getByText(/Code PIN incorrect/)).toBeVisible({ timeout: 15_000 });
 
-  // Réactivation → connexion possible
+  // Pendant la désactivation, le PIN 5678 est réattribué à un autre compte
+  // (le contrôle d'unicité ne voit pas les comptes désactivés)
   await loginWithPin(page, '1234');
   await expect(page.getByRole('button', { name: 'Utilisateurs', exact: true })).toBeVisible({
     timeout: 15_000,
   });
-  await page.getByRole('button', { name: 'Utilisateurs', exact: true }).click();
-  await page
+  await createUser(page, {
+    username: 'vendeur4bis',
+    fullName: 'Vendeur Quatre Bis',
+    role: 'Caissier',
+    pin: '5678',
+  });
+  await expect(page.getByRole('row').filter({ hasText: 'vendeur4bis' })).toContainText(
+    'Actif',
+    { timeout: 15_000 }
+  );
+
+  // UR-5 : la réactivation exige un NOUVEAU PIN ; reprendre 5678 est refusé
+  const row4 = page
     .getByRole('row')
-    .filter({ hasText: 'vendeur4' })
-    .getByRole('button', { name: 'Réactiver' })
-    .click();
-  await expect(page.getByRole('row').filter({ hasText: 'vendeur4' })).toContainText('Actif', {
+    .filter({ has: page.getByRole('cell', { name: 'vendeur4', exact: true }) });
+  await row4.getByRole('button', { name: 'Réactiver' }).click();
+  await expect(page.getByText(/Réactiver — Vendeur Quatre/)).toBeVisible();
+  await page.getByPlaceholder('Nouveau PIN *').fill('5678');
+  await page.getByPlaceholder('Confirmer le PIN *').fill('5678');
+  await page.getByRole('button', { name: 'Réactiver le compte' }).click();
+  await expect(page.getByText('Ce PIN est déjà utilisé par un autre compte.')).toBeVisible();
+
+  // Avec un PIN libre, la réactivation passe
+  await page.getByPlaceholder('Nouveau PIN *').fill('9753');
+  await page.getByPlaceholder('Confirmer le PIN *').fill('9753');
+  await page.getByRole('button', { name: 'Réactiver le compte' }).click();
+  await expect(row4).toContainText('Actif', { timeout: 15_000 });
+
+  // Chaque compte se connecte avec SON PIN
+  await logout(page);
+  await loginWithPin(page, '9753');
+  await expect(page.getByText('Vendeur Quatre').first()).toBeVisible({
     timeout: 15_000,
   });
-
   await logout(page);
   await loginWithPin(page, '5678');
-  await expect(page.getByText('Vendeur Quatre')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Vendeur Quatre Bis')).toBeVisible({ timeout: 15_000 });
 });
 
 test('impossible de désactiver son propre compte (bouton absent)', async ({ page }) => {

@@ -75,6 +75,67 @@ test('la remise globale survit à la suspension et au rappel (S21)', async ({ pa
   await expect(page.getByText(/enregistrée/)).toBeVisible({ timeout: 15_000 });
 });
 
+test('rappel F9 : paliers et vente au mètre conservés au changement de quantité (UR-3)', async ({
+  page,
+}) => {
+  await login(page);
+  await openSession(page, 50000);
+
+  // 100 m de câble au palier gros (3 000 Ar/m)
+  await addToCart(page, 'Câble', 'Câble 2,5mm²');
+  await page.getByLabel('Quantité Câble 2,5mm²').fill('100');
+  await expect(page.getByText('300 000 Ar').first()).toBeVisible();
+
+  await page.keyboard.press('F8');
+  await expect(page.getByText(/Panier suspendu/)).toBeVisible({ timeout: 15_000 });
+  await page.keyboard.press('F9');
+  await page.getByRole('button', { name: /P-\d{4}-00001/ }).click();
+
+  // Changer la quantité APRÈS rappel : le palier gros doit tenir
+  await page.getByLabel('Quantité Câble 2,5mm²').fill('101');
+  await expect(page.getByText('303 000 Ar').first()).toBeVisible();
+  await expect(page.getByText('Gros', { exact: true })).toBeVisible();
+
+  // Les décimales restent permises (unité m réhydratée)
+  await page.getByLabel('Quantité Câble 2,5mm²').fill('2.5');
+  await expect(page.getByText('10 000 Ar').first()).toBeVisible();
+});
+
+test('retour sur vente remisée : remboursement au prix réellement payé (UR-4)', async ({
+  page,
+}) => {
+  await login(page);
+  await openSession(page, 50000);
+
+  // 2 ampoules − 10 % → 5 400 Ar payés (2 700/unité)
+  await addToCart(page, 'Ampoule', 'Ampoule 9W');
+  await addToCart(page, 'Ampoule', 'Ampoule 9W');
+  await page.keyboard.press('F4');
+  await page.getByPlaceholder('ex : 5').fill('10');
+  await page.getByRole('button', { name: 'Appliquer la remise' }).click();
+  await payCash(page, 5400);
+  await expect(page.getByText(/V-\d{4}-00001 enregistrée/)).toBeVisible({ timeout: 15_000 });
+
+  // Retour d'1 unité : l'aperçu ET le remboursement = 2 700 Ar (pas 3 000)
+  await page.getByRole('button', { name: /Retour d.articles/ }).click();
+  await page.getByPlaceholder('N° de vente (V-2026-00001)').fill('V-2026-00001');
+  await page.getByRole('button', { name: 'Chercher' }).click();
+  await page.locator('input[type="number"]').first().fill('1');
+  await expect(page.getByText('2 700 Ar').first()).toBeVisible();
+  await page.getByPlaceholder('PIN Admin (obligatoire pour un retour)').fill('1234');
+  await page.getByRole('button', { name: 'Valider le retour' }).click();
+  await expect(page.getByText(/Avoir R-/)).toBeVisible({ timeout: 15_000 });
+
+  // Z cohérent : 50 000 + 5 400 − 2 700 = 52 700, écart 0
+  await page.getByRole('button', { name: 'Session', exact: true }).click();
+  await expect(
+    page.locator('div.bg-blue-50').filter({ hasText: 'Attendu' })
+  ).toContainText('52 700 Ar');
+  await page.locator('input[type="number"]').last().fill('52700');
+  await page.getByRole('button', { name: 'Clôturer' }).click();
+  await expect(page.getByText(/écart \+?0 Ar/)).toBeVisible({ timeout: 15_000 });
+});
+
 test('sur-retour bloqué : impossible de retourner deux fois les articles', async ({ page }) => {
   await login(page);
   await openSession(page, 50000);

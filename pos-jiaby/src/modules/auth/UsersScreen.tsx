@@ -13,6 +13,8 @@ interface UsersScreenProps {
     pin: string;
   }) => Promise<void>;
   onChangePin: (userId: string, pin: string) => Promise<void>;
+  /** Réactivation : un NOUVEAU PIN est exigé (unicité garantie). */
+  onReactivate: (userId: string, pin: string) => Promise<void>;
   onSetActive: (userId: string, active: boolean) => Promise<void>;
   onUnlock: (userId: string) => Promise<void>;
 }
@@ -27,11 +29,14 @@ export function UsersScreen({
   currentUserId,
   onCreateUser,
   onChangePin,
+  onReactivate,
   onSetActive,
   onUnlock,
 }: UsersScreenProps) {
   const [showForm, setShowForm] = useState(false);
   const [pinTarget, setPinTarget] = useState<AppUser | null>(null);
+  /** 'change' = changer le PIN ; 'reactivate' = réactiver avec nouveau PIN. */
+  const [pinMode, setPinMode] = useState<'change' | 'reactivate'>('change');
   const [error, setError] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -82,7 +87,11 @@ export function UsersScreen({
     }
     setSubmitting(true);
     try {
-      await onChangePin(pinTarget.id, newPin);
+      if (pinMode === 'reactivate') {
+        await onReactivate(pinTarget.id, newPin);
+      } else {
+        await onChangePin(pinTarget.id, newPin);
+      }
       setPinTarget(null);
       setNewPin('');
       setNewPinConfirm('');
@@ -172,6 +181,7 @@ export function UsersScreen({
                           setError(null);
                           setNewPin('');
                           setNewPinConfirm('');
+                          setPinMode('change');
                           setPinTarget(u);
                         }}
                         className="rounded border border-gray-300 px-3 py-1 text-xs text-encre-2 hover:bg-gray-50 touch-target"
@@ -197,7 +207,15 @@ export function UsersScreen({
                     )}
                     {u.deleted === 1 && (
                       <button
-                        onClick={() => handleSetActive(u, true)}
+                        onClick={() => {
+                          // La réactivation exige un NOUVEAU PIN : celui du
+                          // compte désactivé a pu être réattribué entre-temps.
+                          setError(null);
+                          setNewPin('');
+                          setNewPinConfirm('');
+                          setPinMode('reactivate');
+                          setPinTarget(u);
+                        }}
                         className="rounded bg-especes px-3 py-1 text-xs font-medium text-white hover:bg-green-700 touch-target"
                       >
                         Réactiver
@@ -273,13 +291,23 @@ export function UsersScreen({
         </div>
       </Modal>
 
-      {/* Modale changement de PIN */}
+      {/* Modale changement de PIN / réactivation */}
       <Modal
         open={pinTarget !== null}
         onClose={() => setPinTarget(null)}
-        title={`Changer le PIN — ${pinTarget?.full_name ?? ''}`}
+        title={
+          pinMode === 'reactivate'
+            ? `Réactiver — ${pinTarget?.full_name ?? ''}`
+            : `Changer le PIN — ${pinTarget?.full_name ?? ''}`
+        }
       >
         <div className="space-y-3">
+          {pinMode === 'reactivate' && (
+            <p className="text-xs text-encre-2">
+              Un nouveau PIN est obligatoire : l'ancien a pu être attribué à un
+              autre compte pendant la désactivation.
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <input
               className={inputClass}
@@ -309,7 +337,11 @@ export function UsersScreen({
             disabled={submitting || newPin.length < 4}
             className="w-full rounded-lg bg-neutre py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 touch-target"
           >
-            {submitting ? 'Enregistrement…' : 'Changer le PIN'}
+            {submitting
+              ? 'Enregistrement…'
+              : pinMode === 'reactivate'
+                ? 'Réactiver le compte'
+                : 'Changer le PIN'}
           </button>
         </div>
       </Modal>
