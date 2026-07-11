@@ -34,7 +34,7 @@ export function TicketModal({ ticket, onPrint, onClose }: TicketModalProps) {
       <div className="max-h-[92vh] w-full max-w-sm overflow-y-auto rounded-lg bg-carte shadow-xl liseré-terre">
         <div className="flex items-center justify-between border-b px-5 py-3">
           <h2 className="text-lg font-semibold text-encre">
-            Ticket {ticket.ticketNumber}
+            {ticket.documentType === 'devis' ? 'Devis' : 'Ticket'} {ticket.ticketNumber}
           </h2>
           <button
             onClick={onClose}

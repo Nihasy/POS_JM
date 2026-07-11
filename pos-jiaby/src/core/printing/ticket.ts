@@ -26,6 +26,8 @@ import { formatAriary, formatDate, formatTime } from '@/core/format';
 
 export interface TicketData {
   ticketNumber: string;
+  /** 'devis' = proforma : en-tête DEVIS, pas de paiements, mention légale. */
+  documentType?: 'ticket' | 'devis';
   date: Date;
   cashier: string;
   lines: {
@@ -60,6 +62,7 @@ export interface TicketData {
 export function generateTicketText(data: TicketData): string {
   const WIDTH = 42; // Caractères par ligne pour 80 mm en police standard
   const lines: string[] = [];
+  const isDevis = data.documentType === 'devis';
 
   // Séparateur
   const sep = '─'.repeat(WIDTH);
@@ -68,10 +71,14 @@ export function generateTicketText(data: TicketData): string {
   // En-tête
   lines.push(center('JIABY POS', WIDTH));
   lines.push(center(data.header || 'Materiel Electrique', WIDTH));
+  if (isDevis) {
+    lines.push('');
+    lines.push(center('*** DEVIS PROFORMA ***', WIDTH));
+  }
   lines.push(thinSep);
-  lines.push(`Ticket: ${data.ticketNumber}`);
+  lines.push(`${isDevis ? 'Devis' : 'Ticket'}: ${data.ticketNumber}`);
   lines.push(`${formatDate(data.date)} ${formatTime(data.date)}`);
-  lines.push(`Caissier: ${data.cashier}`);
+  lines.push(`${isDevis ? 'Vendeur' : 'Caissier'}: ${data.cashier}`);
   lines.push(sep);
 
   // Lignes
@@ -119,26 +126,33 @@ export function generateTicketText(data: TicketData): string {
   lines.push(center(`TOTAL: ${formatAriary(data.total)}`, WIDTH));
   lines.push('');
 
-  // Paiements
-  for (const p of data.payments) {
-    const methodLabel = p.method === 'ESPECES' ? 'Especes' : p.method;
-    lines.push(
-      methodLabel.padEnd(28) + formatAriary(p.amount).padStart(14)
-    );
-    if (p.reference) {
-      lines.push(`  Ref: ${truncate(p.reference, 36)}`);
-    }
-    if (p.change && p.change > 0) {
+  // Paiements (jamais sur un devis)
+  if (!isDevis) {
+    for (const p of data.payments) {
+      const methodLabel = p.method === 'ESPECES' ? 'Especes' : p.method;
       lines.push(
-        'Rendu'.padEnd(28) + formatAriary(p.change).padStart(14)
+        methodLabel.padEnd(28) + formatAriary(p.amount).padStart(14)
       );
+      if (p.reference) {
+        lines.push(`  Ref: ${truncate(p.reference, 36)}`);
+      }
+      if (p.change && p.change > 0) {
+        lines.push(
+          'Rendu'.padEnd(28) + formatAriary(p.change).padStart(14)
+        );
+      }
     }
   }
 
   lines.push(sep);
 
   // Pied
-  lines.push(center(data.footer || 'Merci de votre visite !', WIDTH));
+  if (isDevis) {
+    lines.push(center('Devis valable 7 jours', WIDTH));
+    lines.push(center("Ceci n'est pas une facture", WIDTH));
+  } else {
+    lines.push(center(data.footer || 'Merci de votre visite !', WIDTH));
+  }
   lines.push('');
 
   // Coupe papier

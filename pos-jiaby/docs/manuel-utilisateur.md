@@ -176,7 +176,7 @@ Un client s'absente ? **`F8` suspend le panier** (numéro P-2026-NNNNN) et libè
 
 ### 4.8 Devis (proforma)
 
-Panier rempli → bouton **Devis** : un devis **D-2026-NNNNN** est créé, **sans aucun mouvement de stock ni paiement**. Pour le transformer en vente : `F9`, choisissez le devis (badge DEVIS), le panier se recharge, puis encaissez normalement — la vente prend un numéro V- et le devis est archivé.
+Panier rempli → bouton **Devis** : un devis **D-2026-NNNNN** est créé, **sans aucun mouvement de stock ni paiement**, et le **proforma s'affiche aussitôt** au format 80 mm — en-tête « DEVIS PROFORMA », articles, quantités, total, mentions « Devis valable 7 jours » et « Ceci n'est pas une facture ». Cliquez **Imprimer** pour le remettre au client, ou **Fermer**. Pour transformer le devis en vente : `F9`, choisissez le devis (badge DEVIS), le panier se recharge, puis encaissez normalement — la vente prend un numéro V- et le devis est archivé.
 
 ### 4.9 Retours d'articles
 

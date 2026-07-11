@@ -90,6 +90,38 @@ describe('generateTicketText', () => {
   });
 });
 
+describe('generateTicketText — devis proforma', () => {
+  it('En-tête DEVIS, pas de paiements, mention légale', () => {
+    const devis: TicketData = {
+      ...sampleTicket,
+      ticketNumber: 'D-2026-00003',
+      documentType: 'devis',
+      payments: [],
+    };
+    const text = generateTicketText(devis);
+
+    expect(text).toContain('*** DEVIS PROFORMA ***');
+    expect(text).toContain('Devis: D-2026-00003');
+    expect(text).toContain('Vendeur: Admin');
+    expect(text).toContain('TOTAL');
+    expect(text).toContain('Devis valable 7 jours');
+    expect(text).toContain("Ceci n'est pas une facture");
+    // Aucun bloc paiement ni pied de ticket classique
+    expect(text).not.toContain('Especes');
+    expect(text).not.toContain('Rendu');
+    expect(text).not.toContain('Merci de votre visite');
+  });
+
+  it('Les paiements sont ignorés même si fournis par erreur', () => {
+    const devis: TicketData = {
+      ...sampleTicket,
+      documentType: 'devis',
+    };
+    const text = generateTicketText(devis);
+    expect(text).not.toContain('Especes');
+  });
+});
+
 describe('ESCPOS commands', () => {
   it('Les commandes ESC/POS sont définies', () => {
     expect(ESCPOS.INIT).toBe('\x1b\x40');

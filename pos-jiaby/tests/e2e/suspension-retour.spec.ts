@@ -43,6 +43,17 @@ test('devis sans mouvement de stock, converti en vente (S23)', async ({ page }) 
   await page.getByRole('button', { name: 'Devis', exact: true }).click();
   await expect(page.getByText(/Devis D-\d{4}-00001 créé/)).toBeVisible({ timeout: 15_000 });
 
+  // Le proforma imprimable s'affiche : en-tête DEVIS, mention légale,
+  // total, AUCUN paiement
+  const proforma = page.locator('pre');
+  await expect(proforma).toContainText('DEVIS PROFORMA');
+  await expect(proforma).toContainText('Devis: D-2026-00001');
+  await expect(proforma).toContainText('TOTAL');
+  await expect(proforma).toContainText("Ceci n'est pas une facture");
+  await expect(proforma).not.toContainText('Especes');
+  await expect(page.getByRole('button', { name: 'Imprimer' })).toBeVisible();
+  await page.getByRole('button', { name: 'Fermer', exact: true }).click();
+
   // Aucun mouvement de stock : la torche est toujours à 48
   await page.getByPlaceholder(/Rechercher/).first().fill('Torche');
   await expect(page.getByText('Stock: 48')).toBeVisible();

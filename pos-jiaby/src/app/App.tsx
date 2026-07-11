@@ -306,13 +306,18 @@ export function App() {
         discountGlobalAmount: state.discountGlobalAmount,
         isQuote: true,
       });
+      // Proforma imprimable pour le client (avant de vider le panier)
+      setTicketData({
+        ...buildTicketData(result.saleNumber, [], null),
+        documentType: 'devis',
+      });
       cartStore.clearCart();
       notify(`Devis ${result.saleNumber} créé (aucun mouvement de stock).`);
       await refresh();
     } catch (e) {
       notify(e instanceof Error ? e.message : 'Erreur lors de la création du devis');
     }
-  }, [db, user, cartStore, notify, refresh]);
+  }, [db, user, cartStore, buildTicketData, notify, refresh]);
 
   const handleOpenRecall = useCallback(async () => {
     if (!db) return;
