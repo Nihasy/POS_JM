@@ -92,6 +92,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           onEnter={handleLogin}
           label="Code PIN"
           allowDecimal={false}
+          masked
         />
 
         {/* Bouton connexion */}

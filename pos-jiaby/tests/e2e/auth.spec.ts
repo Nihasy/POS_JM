@@ -30,6 +30,26 @@ test('PIN erroné → message clair, puis connexion au bon PIN', async ({ page }
   });
 });
 
+test('les chiffres du PIN sont masqués à l’écran (discrétion)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Se connecter' })).toBeVisible({
+    timeout: 20_000,
+  });
+
+  await typePin(page, '1234');
+
+  // L'affichage du pavé montre des points, jamais les chiffres tapés
+  const display = page.locator('.font-mono.text-2xl');
+  await expect(display).toHaveText('••••');
+  await expect(page.getByText('1234', { exact: true })).toHaveCount(0);
+
+  // La connexion fonctionne toujours
+  await page.getByRole('button', { name: 'Se connecter' }).click();
+  await expect(page.getByRole('button', { name: 'Catalogue' })).toBeVisible({
+    timeout: 15_000,
+  });
+});
+
 test('PIN trop court → bouton désactivé', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Se connecter' })).toBeVisible({

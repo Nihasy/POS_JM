@@ -7,6 +7,8 @@ interface NumPadProps {
   label?: string;
   /** Mode contrôlé : l'affichage suit cette valeur (reset possible par le parent). */
   value?: string;
+  /** Saisie discrète (PIN) : affiche des points à la place des chiffres. */
+  masked?: boolean;
 }
 
 /**
@@ -22,6 +24,7 @@ export function NumPad({
   allowDecimal = false,
   label = 'Saisie',
   value,
+  masked = false,
 }: NumPadProps) {
   const [internal, setInternal] = useState('');
   const display = value !== undefined ? value : internal;
@@ -99,9 +102,9 @@ export function NumPad({
 
   return (
     <div className="select-none" aria-label={label}>
-      {/* Affichage */}
+      {/* Affichage — masqué en saisie de PIN (discrétion) */}
       <div className="mb-2 rounded border border-gray-200 bg-white px-3 py-2 text-right font-mono text-2xl tabular-nums min-h-[2.5rem]">
-        {display || '0'}
+        {masked ? '•'.repeat(display.length) || '·' : display || '0'}
       </div>
 
       {/* Grille de touches */}
