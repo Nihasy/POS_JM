@@ -6,6 +6,8 @@ interface ItemFormData {
   name: string;
   shortName: string;
   categoryId: string;
+  /** Catégorie à créer (renseignée via « + Nouvelle catégorie… »). */
+  newCategoryName: string;
   supplierId: string;
   /** Référence : vide = suggestion automatique (catégorie + nom court). */
   itemNumber: string;
@@ -26,6 +28,7 @@ const EMPTY_FORM: ItemFormData = {
   name: '',
   shortName: '',
   categoryId: '',
+  newCategoryName: '',
   supplierId: '',
   itemNumber: '',
   unitName: 'pièce',
@@ -83,9 +86,16 @@ export function ItemForm({
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Suggestion live : catégorie + nom court + séquence
+  // Nouvelle catégorie en cours de saisie ?
+  const [creatingCategory, setCreatingCategory] = useState(
+    Boolean(initialData?.newCategoryName)
+  );
+
+  // Suggestion live : catégorie (existante ou en création) + nom court + séquence
   const suggestedRef = buildItemReference(
-    categories.find((c) => c.id === form.categoryId)?.name ?? null,
+    creatingCategory
+      ? form.newCategoryName || null
+      : (categories.find((c) => c.id === form.categoryId)?.name ?? null),
     form.shortName || form.name,
     nextSeq
   );
@@ -99,6 +109,9 @@ export function ItemForm({
     const errs: string[] = [];
 
     if (!form.name.trim()) errs.push('Le nom est obligatoire.');
+    if (creatingCategory && !form.newCategoryName.trim()) {
+      errs.push('Le nom de la nouvelle catégorie est obligatoire.');
+    }
     if (!form.sellingPrice || Number(form.sellingPrice) < 0) {
       errs.push('Le prix de vente doit être positif.');
     }
@@ -171,8 +184,16 @@ export function ItemForm({
             <select
               className={inputClass}
               aria-label="Catégorie"
-              value={form.categoryId}
-              onChange={(e) => update('categoryId', e.target.value)}
+              value={creatingCategory ? '__new__' : form.categoryId}
+              onChange={(e) => {
+                if (e.target.value === '__new__') {
+                  setCreatingCategory(true);
+                  update('categoryId', '');
+                } else {
+                  setCreatingCategory(false);
+                  setForm((p) => ({ ...p, categoryId: e.target.value, newCategoryName: '' }));
+                }
+              }}
             >
               <option value="">— Aucune —</option>
               {categories.map((cat) => (
@@ -180,7 +201,18 @@ export function ItemForm({
                   {cat.name}
                 </option>
               ))}
+              <option value="__new__">+ Nouvelle catégorie…</option>
             </select>
+            {creatingCategory && (
+              <input
+                className={`${inputClass} mt-1.5`}
+                aria-label="Nom de la nouvelle catégorie"
+                placeholder="Nom de la nouvelle catégorie *"
+                value={form.newCategoryName}
+                onChange={(e) => update('newCategoryName', e.target.value)}
+                autoFocus
+              />
+            )}
           </div>
         </div>
 
@@ -199,7 +231,7 @@ export function ItemForm({
                 setRefDirty(true);
                 update('itemNumber', e.target.value.toUpperCase());
               }}
-              placeholder="JIA-CAT-NOM-001"
+              placeholder="CAT-NOM-001"
             />
             {!isEdit && !refDirty && (
               <p className="mt-0.5 text-[0.65rem] text-encre-2">

@@ -19,10 +19,10 @@ describe('labelCode / buildItemReference', () => {
     expect(labelCode('Câbles 2,5mm²')).toBe('CABL');
   });
 
-  it('référence = catégorie + nom court + séquence', () => {
-    expect(buildItemReference('Torches', 'Lampe frontale', 12)).toBe('JIA-TORC-LAMP-012');
-    expect(buildItemReference(null, 'Visseuse', 3)).toBe('JIA-GENE-VISS-003');
-    expect(buildItemReference('Électricité', 'Prise TV', 137)).toBe('JIA-ELEC-PRIS-137');
+  it('référence = catégorie + nom court + séquence (sans préfixe)', () => {
+    expect(buildItemReference('Torches', 'Lampe frontale', 12)).toBe('TORC-LAMP-012');
+    expect(buildItemReference(null, 'Visseuse', 3)).toBe('GENE-VISS-003');
+    expect(buildItemReference('Électricité', 'Prise TV', 137)).toBe('ELEC-PRIS-137');
   });
 });
 

@@ -43,9 +43,9 @@ test('création : référence suggérée (catégorie + nom court) et fournisseur
 
   // La suggestion suit le nom (pas de catégorie → GENE) puis la catégorie
   const refInput = page.getByLabel('Référence');
-  await expect(refInput).toHaveValue('JIA-GENE-PRIS-005');
+  await expect(refInput).toHaveValue('GENE-PRIS-005');
   await page.getByLabel('Catégorie').selectOption({ label: 'Électricité' });
-  await expect(refInput).toHaveValue('JIA-ELEC-PRIS-005');
+  await expect(refInput).toHaveValue('ELEC-PRIS-005');
 
   // Fournisseur optionnel
   await page.getByLabel('Fournisseur').selectOption({ label: 'Import CN Guangzhou' });
@@ -56,7 +56,31 @@ test('création : référence suggérée (catégorie + nom court) et fournisseur
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
 
   await expect(page.getByText('Prise murale double')).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText('JIA-ELEC-PRIS-005')).toBeVisible();
+  await expect(page.getByText('ELEC-PRIS-005')).toBeVisible();
+});
+
+test('création d’une catégorie à la volée depuis le formulaire', async ({ page }) => {
+  await login(page);
+  await page.getByRole('button', { name: 'Catalogue', exact: true }).click();
+  await page.getByRole('button', { name: '+ Nouveau' }).click();
+
+  await page.getByPlaceholder('Ex: Câble 2.5mm² 100m').fill('Tuyau PVC 32');
+  await page.getByLabel('Catégorie').selectOption('__new__');
+  await page.getByLabel('Nom de la nouvelle catégorie').fill('Plomberie');
+
+  // La suggestion de référence suit la nouvelle catégorie
+  await expect(page.getByLabel('Référence')).toHaveValue('PLOM-TUYA-005');
+
+  await page.locator('input[type="number"]').nth(1).fill('8000');
+  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(page.getByText('Tuyau PVC 32')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('PLOM-TUYA-005')).toBeVisible();
+
+  // La catégorie existe désormais dans la liste (réouverture du formulaire)
+  await page.getByRole('button', { name: '+ Nouveau' }).click();
+  await expect(
+    page.getByLabel('Catégorie').locator('option', { hasText: 'Plomberie' })
+  ).toHaveCount(1);
 });
 
 test('validation des paliers incohérents refusée', async ({ page }) => {

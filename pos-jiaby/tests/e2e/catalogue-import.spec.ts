@@ -42,7 +42,7 @@ test('import CSV : aperçu, erreurs ignorées, produits créés avec stock initi
   // Produits visibles au catalogue avec référence et stock initial
   const perceuse = page.getByRole('button', { name: /Modifier Perceuse 500W/ });
   await expect(perceuse).toBeVisible({ timeout: 15_000 });
-  await expect(perceuse).toContainText(/JIA-OUTI-PERC-\d{3}/);
+  await expect(perceuse).toContainText(/OUTI-PERC-\d{3}/);
   await expect(perceuse).toContainText('Stock: 10');
 
   const fil = page.getByRole('button', { name: /Modifier Fil 1,5mm²/ });

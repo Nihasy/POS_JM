@@ -26,6 +26,7 @@ function getFormData(form: Parameters<Parameters<typeof ItemForm>[0]['onSave']>[
     name: form.name.trim(),
     shortName: form.shortName.trim() || form.name.trim().slice(0, 30),
     categoryId: form.categoryId || null,
+    newCategoryName: form.newCategoryName?.trim() || null,
     supplierId: form.supplierId || null,
     itemNumber: form.itemNumber?.trim() || null,
     unitName: form.unitName || 'pièce',

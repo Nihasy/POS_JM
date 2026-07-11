@@ -203,7 +203,7 @@ Recherche instantanée par **nom, nom court ou référence**. Chaque ligne montr
 | **Nom** * | Nom complet affiché partout |
 | Nom court | Version courte imprimée sur le ticket (30 caractères max) |
 | Catégorie | Classement (Câbles, Torches, Solaire, Audio, Électricité, Accessoires) — sert aussi à générer la référence |
-| Référence | **Suggérée automatiquement** en direct depuis la catégorie + le nom court (ex. `JIA-ELEC-PRIS-005`) ; modifiable avant l'enregistrement, figée ensuite (les étiquettes QR imprimées doivent rester valables) |
+| Référence | **Suggérée automatiquement** en direct depuis la catégorie + le nom court (ex. `ELEC-PRIS-005`) ; modifiable avant l'enregistrement, figée ensuite (les étiquettes QR imprimées doivent rester valables) |
 | Fournisseur (optionnel) | Fournisseur habituel du produit — permet de **filtrer l'inventaire** et de retrouver ses produits en tête de liste à la réception |
 | Unité | pièce, **mètre**, kg, rouleau, lot, paire — l'unité « m » permet les quantités décimales |
 | Conditionnement + Qté/pack | Ex. « carton » de 24 : à la réception vous saisissez des cartons, l'app convertit en unités |
@@ -214,7 +214,7 @@ Recherche instantanée par **nom, nom court ou référence**. Chaque ligne montr
 | Seuil réappro. | En dessous de ce stock : alerte ⚠ + apparition dans le rapport « Stock bas » |
 | Qté par défaut en réception | Pré-remplit la colonne « Unités » à la réception |
 
-La **référence** (ex. `JIA-TORC-0007`) est générée automatiquement à partir de la catégorie.
+La **référence** est générée automatiquement à partir de la catégorie et du nom court (ex. `ELEC-PRIS-005`), et une catégorie peut être **créée à la volée** via « + Nouvelle catégorie… » dans le formulaire.
 
 ### Modifier / supprimer
 

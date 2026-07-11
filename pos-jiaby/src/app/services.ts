@@ -973,6 +973,8 @@ export interface ItemFormData {
   name: string;
   shortName: string;
   categoryId: UUID | null;
+  /** Catégorie à créer à la volée (prioritaire sur categoryId). */
+  newCategoryName?: string | null;
   supplierId: UUID | null;
   /** Référence manuelle ; vide = générée (catégorie + nom court + séquence). */
   itemNumber?: string | null;
@@ -987,6 +989,26 @@ export interface ItemFormData {
   priceGros: number | null;
   reorderLevel: number | null;
   receivingQuantity: number | null;
+}
+
+/** Catégorie par nom (insensible à la casse) — créée si absente. */
+async function ensureCategory(db: Db, name: string): Promise<UUID> {
+  const trimmed = name.trim();
+  const rows = await db.select<{ id: UUID }>(
+    'SELECT id FROM categories WHERE LOWER(name) = LOWER(?)',
+    [trimmed]
+  );
+  if (rows[0]) return rows[0].id;
+
+  const maxSort = await db.select<{ mx: number }>(
+    'SELECT COALESCE(MAX(sort_order), 0) as mx FROM categories'
+  );
+  const id = crypto.randomUUID();
+  await db.execute(
+    'INSERT INTO categories (id, name, parent_id, sort_order) VALUES (?, ?, NULL, ?)',
+    [id, trimmed, (maxSort[0]?.mx ?? 0) + 1]
+  );
+  return id;
 }
 
 async function itemNumberExists(db: Db, itemNumber: string): Promise<boolean> {
@@ -1028,6 +1050,12 @@ async function nextItemNumber(
 export async function createItemTx(db: Db, data: ItemFormData): Promise<UUID> {
   const id = crypto.randomUUID();
 
+  // Catégorie créée à la volée si demandée depuis le formulaire
+  let categoryId = data.categoryId;
+  if (data.newCategoryName?.trim()) {
+    categoryId = await ensureCategory(db, data.newCategoryName);
+  }
+
   // Référence : manuelle (unicité vérifiée) ou générée automatiquement
   const manual = data.itemNumber?.trim().toUpperCase() ?? '';
   let itemNumber: string;
@@ -1037,7 +1065,7 @@ export async function createItemTx(db: Db, data: ItemFormData): Promise<UUID> {
     }
     itemNumber = manual;
   } else {
-    itemNumber = await nextItemNumber(db, data.categoryId, data.shortName || data.name);
+    itemNumber = await nextItemNumber(db, categoryId, data.shortName || data.name);
   }
 
   await db.execute(
@@ -1046,7 +1074,7 @@ export async function createItemTx(db: Db, data: ItemFormData): Promise<UUID> {
       qty_per_pack, cost_price, selling_price, qty_semi_gros, price_semi_gros,
       qty_gros, price_gros, reorder_level, receiving_quantity, photo_path, deleted
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)`,
-    [id, itemNumber, data.name, data.shortName, data.categoryId, data.supplierId,
+    [id, itemNumber, data.name, data.shortName, categoryId, data.supplierId,
      data.unitName, data.packName, data.qtyPerPack, data.costPrice, data.sellingPrice,
      data.qtySemiGros, data.priceSemiGros, data.qtyGros, data.priceGros,
      data.reorderLevel, data.receivingQuantity]
@@ -1055,6 +1083,10 @@ export async function createItemTx(db: Db, data: ItemFormData): Promise<UUID> {
 }
 
 export async function updateItemTx(db: Db, id: UUID, data: ItemFormData): Promise<void> {
+  let categoryId = data.categoryId;
+  if (data.newCategoryName?.trim()) {
+    categoryId = await ensureCategory(db, data.newCategoryName);
+  }
   await db.execute(
     `UPDATE items SET
       name = ?, short_name = ?, category_id = ?, supplier_id = ?, unit_name = ?, pack_name = ?,
@@ -1062,7 +1094,7 @@ export async function updateItemTx(db: Db, id: UUID, data: ItemFormData): Promis
       price_semi_gros = ?, qty_gros = ?, price_gros = ?, reorder_level = ?,
       receiving_quantity = ?, updated_at = datetime('now')
     WHERE id = ?`,
-    [data.name, data.shortName, data.categoryId, data.supplierId, data.unitName, data.packName,
+    [data.name, data.shortName, categoryId, data.supplierId, data.unitName, data.packName,
      data.qtyPerPack, data.costPrice, data.sellingPrice, data.qtySemiGros,
      data.priceSemiGros, data.qtyGros, data.priceGros, data.reorderLevel,
      data.receivingQuantity, id]

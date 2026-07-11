@@ -77,15 +77,15 @@ export function labelCode(label: string | null | undefined, fallback = 'GENE'): 
  * Référence article suggérée : catégorie + nom court + séquence.
  *
  * @example
- * buildItemReference('Torches', 'Lampe frontale', 12) // → "JIA-TORC-LAMP-012"
- * buildItemReference(null, 'Visseuse', 3)             // → "JIA-GENE-VISS-003"
+ * buildItemReference('Torches', 'Lampe frontale', 12) // → "TORC-LAMP-012"
+ * buildItemReference(null, 'Visseuse', 3)             // → "GENE-VISS-003"
  */
 export function buildItemReference(
   categoryName: string | null | undefined,
   shortName: string,
   sequence: number
 ): string {
-  return `JIA-${labelCode(categoryName)}-${labelCode(shortName, 'PROD')}-${String(
+  return `${labelCode(categoryName)}-${labelCode(shortName, 'PROD')}-${String(
     sequence
   ).padStart(3, '0')}`;
 }
