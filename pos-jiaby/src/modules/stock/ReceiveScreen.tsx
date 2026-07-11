@@ -131,21 +131,49 @@ export function ReceiveScreen({ items, suppliers, stockLevels, onReceive }: Rece
         </div>
       </div>
 
-      {/* Ajout ligne */}
+      {/* Ajout ligne — les produits du fournisseur choisi en premier,
+          triés par référence */}
       <div className="mb-4 flex gap-2">
         <select
           className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm"
+          aria-label="Ajouter un produit"
           value={selectedItemId}
           onChange={(e) => setSelectedItemId(e.target.value)}
         >
           <option value="">— Ajouter un produit —</option>
-          {items
-            .filter((i) => i.deleted === 0 && !lines.some((l) => l.itemId === i.id))
-            .map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
+          {(() => {
+            const available = items
+              .filter((i) => i.deleted === 0 && !lines.some((l) => l.itemId === i.id))
+              .sort((a, b) => a.item_number.localeCompare(b.item_number));
+            const ofSupplier = supplierId
+              ? available.filter((i) => i.supplier_id === supplierId)
+              : [];
+            const others = supplierId
+              ? available.filter((i) => i.supplier_id !== supplierId)
+              : available;
+            return (
+              <>
+                {ofSupplier.length > 0 && (
+                  <optgroup label="Produits de ce fournisseur">
+                    {ofSupplier.map((item) => (
+                      <option key={item.id} value={item.id} title={item.item_number}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {others.length > 0 && (
+                  <optgroup label={ofSupplier.length > 0 ? 'Autres produits' : 'Produits'}>
+                    {others.map((item) => (
+                      <option key={item.id} value={item.id} title={item.item_number}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </>
+            );
+          })()}
         </select>
         <button
           onClick={addLine}

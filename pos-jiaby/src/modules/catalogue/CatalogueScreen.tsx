@@ -1,16 +1,20 @@
 import { useState, useCallback, useMemo } from 'react';
 import { SearchBox, MontantAr, Modal, Badge } from '@/components';
 import { ItemForm } from './ItemForm';
-import type { Item, Category } from '@/core/domain/types';
+import { ImportCsvModal } from './ImportCsvModal';
+import type { Item, Category, Supplier } from '@/core/domain/types';
+import type { CatalogueCsvRow } from '@/core/import/catalogueCsv';
 import { formatQty } from '@/core/format';
 
 interface CatalogueScreenProps {
   items: Item[];
   categories: Category[];
+  suppliers: Supplier[];
   stockLevels: Map<string, number>;
   onCreateItem: (data: ReturnType<typeof getFormData>) => Promise<void>;
   onUpdateItem: (id: string, data: ReturnType<typeof getFormData>) => Promise<void>;
   onDeleteItem: (id: string) => Promise<void>;
+  onImportCsv: (rows: CatalogueCsvRow[]) => Promise<{ created: number; skipped: string[] }>;
   canEdit: boolean;
   canDelete: boolean;
   showCost: boolean;
@@ -22,6 +26,8 @@ function getFormData(form: Parameters<Parameters<typeof ItemForm>[0]['onSave']>[
     name: form.name.trim(),
     shortName: form.shortName.trim() || form.name.trim().slice(0, 30),
     categoryId: form.categoryId || null,
+    supplierId: form.supplierId || null,
+    itemNumber: form.itemNumber?.trim() || null,
     unitName: form.unitName || 'pièce',
     packName: form.packName || null,
     qtyPerPack: form.qtyPerPack,
@@ -43,10 +49,12 @@ function getFormData(form: Parameters<Parameters<typeof ItemForm>[0]['onSave']>[
 export function CatalogueScreen({
   items,
   categories,
+  suppliers,
   stockLevels,
   onCreateItem,
   onUpdateItem,
   onDeleteItem,
+  onImportCsv,
   canEdit,
   canDelete,
   showCost,
@@ -54,6 +62,7 @@ export function CatalogueScreen({
   const [search, setSearch] = useState('');
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Filtrer les résultats
@@ -114,12 +123,20 @@ export function CatalogueScreen({
           />
         </div>
         {canEdit && (
-          <button
-            onClick={handleCreate}
-            className="rounded-lg bg-neutre px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 touch-target"
-          >
-            + Nouveau
-          </button>
+          <>
+            <button
+              onClick={() => setShowImport(true)}
+              className="rounded-lg border border-neutre bg-carte px-4 py-3 text-sm font-semibold text-neutre hover:bg-blue-50 touch-target"
+            >
+              Import CSV
+            </button>
+            <button
+              onClick={handleCreate}
+              className="rounded-lg bg-neutre px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 touch-target"
+            >
+              + Nouveau
+            </button>
+          </>
         )}
       </div>
 
@@ -234,12 +251,17 @@ export function CatalogueScreen({
         title={selectedItem ? `Modifier: ${selectedItem.name}` : 'Nouveau produit'}
       >
         <ItemForm
+          suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
+          nextSeq={items.length + 1}
+          isEdit={selectedItem !== null}
           initialData={
             selectedItem
               ? {
                   name: selectedItem.name,
                   shortName: selectedItem.short_name,
                   categoryId: selectedItem.category_id ?? '',
+                  supplierId: selectedItem.supplier_id ?? '',
+                  itemNumber: selectedItem.item_number,
                   unitName: selectedItem.unit_name,
                   packName: selectedItem.pack_name ?? '',
                   qtyPerPack: selectedItem.qty_per_pack,
@@ -260,6 +282,14 @@ export function CatalogueScreen({
           saving={saving}
         />
       </Modal>
+
+      {/* Import CSV du catalogue */}
+      <ImportCsvModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        existingNames={items.map((i) => i.name)}
+        onImport={onImportCsv}
+      />
     </div>
   );
 }

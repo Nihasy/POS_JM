@@ -1,10 +1,14 @@
 import { useState } from 'react';
 import { MontantAr } from '@/components';
+import { buildItemReference } from '@/core/domain/numbering';
 
 interface ItemFormData {
   name: string;
   shortName: string;
   categoryId: string;
+  supplierId: string;
+  /** Référence : vide = suggestion automatique (catégorie + nom court). */
+  itemNumber: string;
   unitName: string;
   packName: string;
   qtyPerPack: number | null;
@@ -22,6 +26,8 @@ const EMPTY_FORM: ItemFormData = {
   name: '',
   shortName: '',
   categoryId: '',
+  supplierId: '',
+  itemNumber: '',
   unitName: 'pièce',
   packName: '',
   qtyPerPack: null,
@@ -38,6 +44,11 @@ const EMPTY_FORM: ItemFormData = {
 interface ItemFormProps {
   initialData?: Partial<ItemFormData>;
   categories: { id: string; name: string }[];
+  suppliers: { id: string; name: string }[];
+  /** Séquence estimée pour la suggestion de référence (création). */
+  nextSeq?: number;
+  /** Édition : la référence existante n'est pas modifiable. */
+  isEdit?: boolean;
   onSave: (data: ItemFormData) => void;
   onCancel: () => void;
   saving?: boolean;
@@ -50,6 +61,9 @@ interface ItemFormProps {
 export function ItemForm({
   initialData,
   categories,
+  suppliers,
+  nextSeq = 1,
+  isEdit = false,
   onSave,
   onCancel,
   saving = false,
@@ -59,10 +73,24 @@ export function ItemForm({
     ...initialData,
   });
   const [errors, setErrors] = useState<string[]>([]);
+  // La référence suit la suggestion tant que l'utilisateur n'y a pas touché
+  const [refDirty, setRefDirty] = useState(false);
 
   const update = (field: keyof ItemFormData, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
+
+  // Suggestion live : catégorie + nom court + séquence
+  const suggestedRef = buildItemReference(
+    categories.find((c) => c.id === form.categoryId)?.name ?? null,
+    form.shortName || form.name,
+    nextSeq
+  );
+  const displayedRef = isEdit
+    ? form.itemNumber
+    : refDirty
+      ? form.itemNumber
+      : suggestedRef;
 
   const handleSubmit = () => {
     const errs: string[] = [];
@@ -97,7 +125,12 @@ export function ItemForm({
     setErrors(errs);
     if (errs.length > 0) return;
 
-    onSave(form);
+    onSave({
+      ...form,
+      // Création : référence vide = génération automatique (unicité garantie) ;
+      // saisie manuelle transmise telle quelle. Édition : référence figée.
+      itemNumber: isEdit ? form.itemNumber : refDirty ? form.itemNumber.trim() : '',
+    });
   };
 
   const inputClass =
@@ -134,6 +167,7 @@ export function ItemForm({
             <label className={labelClass}>Catégorie</label>
             <select
               className={inputClass}
+              aria-label="Catégorie"
               value={form.categoryId}
               onChange={(e) => update('categoryId', e.target.value)}
             >
@@ -141,6 +175,47 @@ export function ItemForm({
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>
                   {cat.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Référence (suggérée : catégorie + nom court) + Fournisseur */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelClass}>
+              Référence {isEdit ? '(non modifiable)' : '(suggérée auto)'}
+            </label>
+            <input
+              className={`${inputClass} font-mono uppercase`}
+              aria-label="Référence"
+              value={displayedRef}
+              disabled={isEdit}
+              onChange={(e) => {
+                setRefDirty(true);
+                update('itemNumber', e.target.value.toUpperCase());
+              }}
+              placeholder="JIA-CAT-NOM-001"
+            />
+            {!isEdit && !refDirty && (
+              <p className="mt-0.5 text-[0.65rem] text-encre-2">
+                Générée depuis la catégorie et le nom court — modifiable.
+              </p>
+            )}
+          </div>
+          <div>
+            <label className={labelClass}>Fournisseur (optionnel)</label>
+            <select
+              className={inputClass}
+              aria-label="Fournisseur"
+              value={form.supplierId}
+              onChange={(e) => update('supplierId', e.target.value)}
+            >
+              <option value="">— Aucun —</option>
+              {suppliers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
                 </option>
               ))}
             </select>

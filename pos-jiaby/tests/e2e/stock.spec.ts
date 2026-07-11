@@ -49,9 +49,8 @@ test('sortie manuelle motivée → stock décrémenté', async ({ page }) => {
   await page.getByRole('button', { name: 'Inventaire & ajustements' }).click();
 
   await page.getByRole('button', { name: 'Sortie manuelle' }).click();
-  // Selects de la page : [0] filtre catégorie, [1] produit (modale), [2] raison (modale)
-  await page.locator('select').nth(1).selectOption(TORCHE_ID);
-  await page.locator('select').nth(2).selectOption('casse');
+  await page.getByLabel('Produit à sortir').selectOption(TORCHE_ID);
+  await page.getByLabel('Raison de la sortie').selectOption('casse');
   await page.getByPlaceholder('Quantité').fill('2');
   await page.getByPlaceholder('Motif détaillé (obligatoire)').fill('Cassées pendant transport');
   await page.getByRole('button', { name: 'Enregistrer la sortie' }).click();

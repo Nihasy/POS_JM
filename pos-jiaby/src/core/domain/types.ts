@@ -29,6 +29,7 @@ export interface Item {
   name: string;
   short_name: string;
   category_id: UUID | null;
+  supplier_id: UUID | null; // fournisseur habituel (tri/filtre stock)
   unit_name: string; // 'pièce', 'm', 'kg', 'rouleau'…
   pack_name: string | null; // 'carton', 'lot'…
   qty_per_pack: number | null; // nombre d'unités par conditionnement

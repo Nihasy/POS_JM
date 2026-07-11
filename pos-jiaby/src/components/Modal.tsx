@@ -55,7 +55,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
           <button
             onClick={onClose}
             className="touch-target rounded text-encre-2 hover:bg-gray-100"
-            aria-label="Fermer"
+            aria-label="Fermer la fenêtre"
           >
             ✕
           </button>

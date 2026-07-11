@@ -203,6 +203,8 @@ Recherche instantanée par **nom, nom court ou référence**. Chaque ligne montr
 | **Nom** * | Nom complet affiché partout |
 | Nom court | Version courte imprimée sur le ticket (30 caractères max) |
 | Catégorie | Classement (Câbles, Torches, Solaire, Audio, Électricité, Accessoires) — sert aussi à générer la référence |
+| Référence | **Suggérée automatiquement** en direct depuis la catégorie + le nom court (ex. `JIA-ELEC-PRIS-005`) ; modifiable avant l'enregistrement, figée ensuite (les étiquettes QR imprimées doivent rester valables) |
+| Fournisseur (optionnel) | Fournisseur habituel du produit — permet de **filtrer l'inventaire** et de retrouver ses produits en tête de liste à la réception |
 | Unité | pièce, **mètre**, kg, rouleau, lot, paire — l'unité « m » permet les quantités décimales |
 | Conditionnement + Qté/pack | Ex. « carton » de 24 : à la réception vous saisissez des cartons, l'app convertit en unités |
 | **Prix de vente (détail)** * | Prix palier 1 |
@@ -218,6 +220,14 @@ La **référence** (ex. `JIA-TORC-0007`) est générée automatiquement à parti
 
 - **Modifier** : cliquez sur la ligne du produit, changez, **Enregistrer**.
 - **Supprimer** (Admin) : bouton 🗑 + confirmation. Le produit disparaît du catalogue et de la vente, mais **l'historique des ventes passées reste intact** (suppression logique, jamais physique).
+
+### Import CSV du catalogue (Admin)
+
+Pour entrer beaucoup de produits d'un coup au lieu de la saisie manuelle : **Catalogue → Import CSV**.
+
+1. **Télécharger le modèle** : un fichier `modele_catalogue.csv` avec les bons en-têtes et une ligne d'exemple (enregistré dans Téléchargements). Remplissez-le dans Excel — colonnes obligatoires : `nom` et `prix_detail` ; les autres (nom_court, categorie, fournisseur, unite, conditionnement, qte_par_pack, cout, paliers, seuil_reappro, **stock_initial**) sont optionnelles.
+2. Choisissez votre fichier : un **aperçu** s'affiche avec le nombre de produits valides et les **erreurs ligne par ligne** (prix non entier, paliers incohérents, doublons…) — les lignes en erreur sont ignorées, les autres importées.
+3. **Importer** : tout passe en une seule opération (tout ou rien). Les **catégories et fournisseurs inconnus sont créés automatiquement**, le `stock_initial` génère une écriture d'ouverture dans le journal de stock, et chaque produit reçoit sa référence auto. Un produit dont le nom existe déjà est ignoré (listé).
 
 ### Étiquettes QR
 
@@ -251,7 +261,7 @@ L'enregistrement est **tout ou rien** : en cas de coupure de courant pendant la 
 
 Pour compter le stock réel et corriger les écarts :
 
-1. Filtrez éventuellement par **catégorie** (comptage rayon par rayon).
+1. Filtrez par **catégorie** et/ou **fournisseur** (comptage rayon par rayon ou contrôle d'un arrivage) — la liste est triée par référence.
 2. Saisissez la quantité **comptée** en face de chaque produit — l'**écart** (compté − théorique) s'affiche en vert (+) ou orange (−). Les produits non comptés ne sont pas touchés.
 3. **Valider l'inventaire (Admin)** : une écriture d'ajustement est créée **pour chaque écart** (les lignes sans écart ne génèrent rien) et le stock théorique est corrigé.
 

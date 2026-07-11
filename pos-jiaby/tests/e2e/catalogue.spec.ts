@@ -32,19 +32,31 @@ test('recherche par nom et par référence', async ({ page }) => {
   await expect(page.getByText('Panneau solaire 50 W')).toBeVisible();
 });
 
-test('création d’un produit avec paliers → visible et vendable', async ({ page }) => {
+test('création : référence suggérée (catégorie + nom court) et fournisseur', async ({
+  page,
+}) => {
   await login(page);
   await page.getByRole('button', { name: 'Catalogue', exact: true }).click();
   await page.getByRole('button', { name: '+ Nouveau' }).click();
 
   await page.getByPlaceholder('Ex: Câble 2.5mm² 100m').fill('Prise murale double');
+
+  // La suggestion suit le nom (pas de catégorie → GENE) puis la catégorie
+  const refInput = page.getByLabel('Référence');
+  await expect(refInput).toHaveValue('JIA-GENE-PRIS-005');
+  await page.getByLabel('Catégorie').selectOption({ label: 'Électricité' });
+  await expect(refInput).toHaveValue('JIA-ELEC-PRIS-005');
+
+  // Fournisseur optionnel
+  await page.getByLabel('Fournisseur').selectOption({ label: 'Import CN Guangzhou' });
+
   const numberInputs = page.locator('input[type="number"]');
   await numberInputs.nth(1).fill('12000'); // prix de vente
   await numberInputs.nth(2).fill('7000'); // coût
   await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
 
   await expect(page.getByText('Prise murale double')).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText(/JIA-\w{4}-\d{4}/).last()).toBeVisible();
+  await expect(page.getByText('JIA-ELEC-PRIS-005')).toBeVisible();
 });
 
 test('validation des paliers incohérents refusée', async ({ page }) => {

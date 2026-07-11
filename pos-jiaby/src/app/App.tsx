@@ -49,6 +49,7 @@ import {
   updateUserPinTx,
   setUserActiveTx,
   unlockUserTx,
+  importCatalogueTx,
   runSync,
   type AppData,
   type SuspendedSale,
@@ -727,7 +728,15 @@ export function App() {
               <CatalogueScreen
                 items={data.items}
                 categories={data.categories}
+                suppliers={data.suppliers}
                 stockLevels={data.stockLevels}
+                onImportCsv={async (rows) => {
+                  if (!user) throw new Error('Non connecté.');
+                  const result = await importCatalogueTx(db, rows, user.id);
+                  notify(`Import : ${result.created} produit(s) créé(s).`);
+                  await refresh();
+                  return result;
+                }}
                 onCreateItem={async (form) => {
                   await createItemTx(db, form);
                   await refresh();
@@ -780,6 +789,7 @@ export function App() {
                     <AdjustScreen
                       items={data.items}
                       categories={data.categories}
+                      suppliers={data.suppliers}
                       stockLevels={data.stockLevels}
                       onAdjust={handleAdjust}
                       onManualOut={handleManualOut}

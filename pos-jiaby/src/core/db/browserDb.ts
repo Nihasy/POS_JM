@@ -9,15 +9,17 @@
 
 import initSqlJs from 'sql.js';
 import wasmUrl from 'sql.js/dist/sql-wasm.wasm?url';
-import migrationSql from './migrations/001_init.sql?raw';
+import migration001 from './migrations/001_init.sql?raw';
+import migration002 from './migrations/002_item_supplier.sql?raw';
 import type { Db } from './index';
 
 export async function openBrowserDatabase(): Promise<Db> {
   const SQL = await initSqlJs({ locateFile: () => wasmUrl });
   const sqldb = new SQL.Database();
 
-  // Schéma complet (mêmes migrations que le plugin Rust)
-  sqldb.exec(migrationSql);
+  // Schéma complet (mêmes migrations que le plugin Rust, dans l'ordre)
+  sqldb.exec(migration001);
+  sqldb.exec(migration002);
 
   type SqlValue = number | string | Uint8Array | null;
 

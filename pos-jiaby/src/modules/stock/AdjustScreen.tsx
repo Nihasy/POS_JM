@@ -1,12 +1,13 @@
 import { useState, useMemo } from 'react';
 import { Modal } from '@/components';
-import type { Item, Category } from '@/core/domain/types';
+import type { Item, Category, Supplier } from '@/core/domain/types';
 import type { AdjustmentReason } from '@/core/domain/adjustment';
 import { formatQty, isDecimalUnit } from '@/core/format';
 
 interface AdjustScreenProps {
   items: Item[];
   categories: Category[];
+  suppliers: Supplier[];
   stockLevels: Map<string, number>;
   /** Validation d'un inventaire (Admin) : lignes avec écart */
   onAdjust: (
@@ -40,12 +41,14 @@ const OUT_REASONS: { id: AdjustmentReason; label: string }[] = [
 export function AdjustScreen({
   items,
   categories,
+  suppliers,
   stockLevels,
   onAdjust,
   onManualOut,
   canAdjust,
 }: AdjustScreenProps) {
   const [categoryId, setCategoryId] = useState<string>('');
+  const [supplierId, setSupplierId] = useState<string>('');
   const [counts, setCounts] = useState<Map<string, string>>(new Map());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,12 +61,14 @@ export function AdjustScreen({
   const [outReason, setOutReason] = useState<AdjustmentReason>('casse');
   const [outComment, setOutComment] = useState('');
 
+  // Filtres catégorie + fournisseur, tri par référence (JIA-…)
   const visibleItems = useMemo(
     () =>
-      categoryId
-        ? items.filter((i) => i.category_id === categoryId)
-        : items,
-    [items, categoryId]
+      items
+        .filter((i) => !categoryId || i.category_id === categoryId)
+        .filter((i) => !supplierId || i.supplier_id === supplierId)
+        .sort((a, b) => a.item_number.localeCompare(b.item_number)),
+    [items, categoryId, supplierId]
   );
 
   const linesWithCount = useMemo(
@@ -130,6 +135,7 @@ export function AdjustScreen({
         <div className="flex items-center gap-2">
           <select
             className="rounded border border-gray-300 px-3 py-2 text-sm"
+            aria-label="Filtrer par catégorie"
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
           >
@@ -137,6 +143,19 @@ export function AdjustScreen({
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="rounded border border-gray-300 px-3 py-2 text-sm"
+            aria-label="Filtrer par fournisseur"
+            value={supplierId}
+            onChange={(e) => setSupplierId(e.target.value)}
+          >
+            <option value="">Tous les fournisseurs</option>
+            {suppliers.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
               </option>
             ))}
           </select>
@@ -245,6 +264,7 @@ export function AdjustScreen({
         <div className="space-y-3">
           <select
             className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+            aria-label="Produit à sortir"
             value={outItemId}
             onChange={(e) => setOutItemId(e.target.value)}
           >
@@ -274,6 +294,7 @@ export function AdjustScreen({
           />
           <select
             className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+            aria-label="Raison de la sortie"
             value={outReason}
             onChange={(e) => setOutReason(e.target.value as AdjustmentReason)}
           >

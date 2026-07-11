@@ -34,6 +34,7 @@ import {
   type AdjustmentReason,
   type AdjustmentLine,
 } from '@/core/domain/adjustment';
+import { buildItemReference } from '@/core/domain/numbering';
 import { prepareCashupClose } from '@/core/domain/cashup';
 
 // ─── Chargement des données ────────────────────────────────────────
@@ -972,6 +973,9 @@ export interface ItemFormData {
   name: string;
   shortName: string;
   categoryId: UUID | null;
+  supplierId: UUID | null;
+  /** Référence manuelle ; vide = générée (catégorie + nom court + séquence). */
+  itemNumber?: string | null;
   unitName: string;
   packName: string | null;
   qtyPerPack: number | null;
@@ -985,37 +989,65 @@ export interface ItemFormData {
   receivingQuantity: number | null;
 }
 
+async function itemNumberExists(db: Db, itemNumber: string): Promise<boolean> {
+  const rows = await db.select<{ id: string }>(
+    'SELECT id FROM items WHERE item_number = ?',
+    [itemNumber]
+  );
+  return rows.length > 0;
+}
+
+/**
+ * Référence disponible pour un nouvel article : catégorie + nom court
+ * + séquence, incrémentée jusqu'à unicité (JIA-TORC-LAMP-012).
+ */
+async function nextItemNumber(
+  db: Db,
+  categoryId: UUID | null,
+  shortName: string
+): Promise<string> {
+  let catName: string | null = null;
+  if (categoryId) {
+    const catRows = await db.select<{ name: string }>(
+      'SELECT name FROM categories WHERE id = ?',
+      [categoryId]
+    );
+    catName = catRows[0]?.name ?? null;
+  }
+  const seqRows = await db.select<{ cnt: number }>('SELECT COUNT(*) + 1 as cnt FROM items');
+  let seq = seqRows[0]?.cnt ?? 1;
+
+  let candidate = buildItemReference(catName, shortName, seq);
+  while (await itemNumberExists(db, candidate)) {
+    seq += 1;
+    candidate = buildItemReference(catName, shortName, seq);
+  }
+  return candidate;
+}
+
 export async function createItemTx(db: Db, data: ItemFormData): Promise<UUID> {
   const id = crypto.randomUUID();
 
-  // Génération auto du numéro d'article : JIA-XXXX-NNNN
-  const seqRows = await db.select<{ cnt: number }>('SELECT COUNT(*) + 1 as cnt FROM items');
-  const seq = seqRows[0]?.cnt ?? 1;
-  let catCode = 'GENE';
-  if (data.categoryId) {
-    const catRows = await db.select<{ name: string }>(
-      'SELECT name FROM categories WHERE id = ?',
-      [data.categoryId]
-    );
-    const catName = catRows[0]?.name ?? '';
-    catCode = catName
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .replace(/[^a-zA-Z]/g, '')
-      .toUpperCase()
-      .slice(0, 4)
-      .padEnd(4, 'X');
+  // Référence : manuelle (unicité vérifiée) ou générée automatiquement
+  const manual = data.itemNumber?.trim().toUpperCase() ?? '';
+  let itemNumber: string;
+  if (manual) {
+    if (await itemNumberExists(db, manual)) {
+      throw new Error(`La référence « ${manual} » est déjà utilisée.`);
+    }
+    itemNumber = manual;
+  } else {
+    itemNumber = await nextItemNumber(db, data.categoryId, data.shortName || data.name);
   }
-  const itemNumber = `JIA-${catCode}-${String(seq).padStart(4, '0')}`;
 
   await db.execute(
     `INSERT INTO items (
-      id, item_number, name, short_name, category_id, unit_name, pack_name,
+      id, item_number, name, short_name, category_id, supplier_id, unit_name, pack_name,
       qty_per_pack, cost_price, selling_price, qty_semi_gros, price_semi_gros,
       qty_gros, price_gros, reorder_level, receiving_quantity, photo_path, deleted
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)`,
-    [id, itemNumber, data.name, data.shortName, data.categoryId, data.unitName,
-     data.packName, data.qtyPerPack, data.costPrice, data.sellingPrice,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)`,
+    [id, itemNumber, data.name, data.shortName, data.categoryId, data.supplierId,
+     data.unitName, data.packName, data.qtyPerPack, data.costPrice, data.sellingPrice,
      data.qtySemiGros, data.priceSemiGros, data.qtyGros, data.priceGros,
      data.reorderLevel, data.receivingQuantity]
   );
@@ -1025,12 +1057,12 @@ export async function createItemTx(db: Db, data: ItemFormData): Promise<UUID> {
 export async function updateItemTx(db: Db, id: UUID, data: ItemFormData): Promise<void> {
   await db.execute(
     `UPDATE items SET
-      name = ?, short_name = ?, category_id = ?, unit_name = ?, pack_name = ?,
+      name = ?, short_name = ?, category_id = ?, supplier_id = ?, unit_name = ?, pack_name = ?,
       qty_per_pack = ?, cost_price = ?, selling_price = ?, qty_semi_gros = ?,
       price_semi_gros = ?, qty_gros = ?, price_gros = ?, reorder_level = ?,
       receiving_quantity = ?, updated_at = datetime('now')
     WHERE id = ?`,
-    [data.name, data.shortName, data.categoryId, data.unitName, data.packName,
+    [data.name, data.shortName, data.categoryId, data.supplierId, data.unitName, data.packName,
      data.qtyPerPack, data.costPrice, data.sellingPrice, data.qtySemiGros,
      data.priceSemiGros, data.qtyGros, data.priceGros, data.reorderLevel,
      data.receivingQuantity, id]
@@ -1043,6 +1075,128 @@ export async function deleteItemTx(db: Db, id: UUID): Promise<void> {
     "UPDATE items SET deleted = 1, updated_at = datetime('now') WHERE id = ?",
     [id]
   );
+}
+
+/**
+ * Import CSV du catalogue — une seule transaction (tout ou rien).
+ *
+ * - catégories et fournisseurs créés à la volée s'ils n'existent pas
+ *   (rapprochement par nom, insensible à la casse) ;
+ * - référence générée (catégorie + nom court + séquence, unique) ;
+ * - stock initial > 0 → écriture ledger OPENING (règle n°4) ;
+ * - un produit dont le nom existe déjà est ignoré (listé en retour).
+ */
+export async function importCatalogueTx(
+  db: Db,
+  rows: import('@/core/import/catalogueCsv').CatalogueCsvRow[],
+  userId: UUID
+): Promise<{ created: number; skipped: string[] }> {
+  // Lectures AVANT la transaction (le collecteur Tauri n'accepte que des écritures)
+  const categories = await db.select<{ id: string; name: string }>(
+    'SELECT id, name FROM categories'
+  );
+  const suppliers = await db.select<{ id: string; name: string }>(
+    'SELECT id, name FROM suppliers WHERE deleted = 0'
+  );
+  const existingItems = await db.select<{ name: string; item_number: string }>(
+    'SELECT name, item_number FROM items'
+  );
+  const maxSort = await db.select<{ mx: number }>(
+    'SELECT COALESCE(MAX(sort_order), 0) as mx FROM categories'
+  );
+
+  const catByName = new Map(categories.map((c) => [c.name.toLowerCase(), c]));
+  const supByName = new Map(suppliers.map((s) => [s.name.toLowerCase(), s]));
+  const existingNames = new Set(existingItems.map((i) => i.name.toLowerCase()));
+  const usedNumbers = new Set(existingItems.map((i) => i.item_number));
+
+  const skipped: string[] = [];
+  let created = 0;
+  let seq = existingItems.length + 1;
+  let sortOrder = maxSort[0]?.mx ?? 0;
+
+  await withTransaction(db, async (tx) => {
+    for (const row of rows) {
+      if (existingNames.has(row.name.toLowerCase())) {
+        skipped.push(`${row.name} (existe déjà)`);
+        continue;
+      }
+
+      // Catégorie : existante ou créée
+      let categoryId: string | null = null;
+      if (row.categoryName) {
+        const key = row.categoryName.toLowerCase();
+        let cat = catByName.get(key);
+        if (!cat) {
+          sortOrder += 1;
+          cat = { id: crypto.randomUUID(), name: row.categoryName };
+          await tx.execute(
+            'INSERT INTO categories (id, name, parent_id, sort_order) VALUES (?, ?, NULL, ?)',
+            [cat.id, cat.name, sortOrder]
+          );
+          catByName.set(key, cat);
+        }
+        categoryId = cat.id;
+      }
+
+      // Fournisseur : existant ou créé
+      let supplierId: string | null = null;
+      if (row.supplierName) {
+        const key = row.supplierName.toLowerCase();
+        let sup = supByName.get(key);
+        if (!sup) {
+          sup = { id: crypto.randomUUID(), name: row.supplierName };
+          await tx.execute(
+            'INSERT INTO suppliers (id, name, phone, category, deleted) VALUES (?, ?, NULL, NULL, 0)',
+            [sup.id, sup.name]
+          );
+          supByName.set(key, sup);
+        }
+        supplierId = sup.id;
+      }
+
+      // Référence unique
+      let itemNumber = buildItemReference(row.categoryName, row.shortName, seq);
+      while (usedNumbers.has(itemNumber)) {
+        seq += 1;
+        itemNumber = buildItemReference(row.categoryName, row.shortName, seq);
+      }
+      usedNumbers.add(itemNumber);
+      seq += 1;
+
+      const itemId = crypto.randomUUID();
+      await tx.execute(
+        `INSERT INTO items (
+          id, item_number, name, short_name, category_id, supplier_id, unit_name, pack_name,
+          qty_per_pack, cost_price, selling_price, qty_semi_gros, price_semi_gros,
+          qty_gros, price_gros, reorder_level, receiving_quantity, photo_path, deleted
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, 0)`,
+        [itemId, itemNumber, row.name, row.shortName, categoryId, supplierId,
+         row.unitName, row.packName, row.qtyPerPack, row.costPrice, row.sellingPrice,
+         row.qtySemiGros, row.priceSemiGros, row.qtyGros, row.priceGros, row.reorderLevel]
+      );
+
+      // Stock initial : écriture ledger OPENING + cache
+      if (row.initialStock > 0) {
+        await tx.execute(
+          `INSERT INTO inventory (id, item_id, quantity, cost_price, ref_type, ref_id, user_id, comment)
+           VALUES (?, ?, ?, ?, 'OPENING', ?, ?, 'Import CSV catalogue')`,
+          [crypto.randomUUID(), itemId, row.initialStock, row.costPrice,
+           crypto.randomUUID(), userId]
+        );
+        await tx.execute(
+          `INSERT INTO item_quantities (item_id, quantity) VALUES (?, ?)
+           ON CONFLICT(item_id) DO UPDATE SET quantity = excluded.quantity`,
+          [itemId, row.initialStock]
+        );
+      }
+
+      existingNames.add(row.name.toLowerCase());
+      created += 1;
+    }
+  });
+
+  return { created, skipped };
 }
 
 export async function createSupplierTx(

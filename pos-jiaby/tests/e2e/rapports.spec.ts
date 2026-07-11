@@ -44,11 +44,8 @@ test('stock bas : produit sous le seuil listé avec déficit (S33)', async ({ pa
   await page.getByRole('button', { name: 'Stock', exact: true }).click();
   await page.getByRole('button', { name: 'Inventaire & ajustements' }).click();
   await page.getByRole('button', { name: 'Sortie manuelle' }).click();
-  await page
-    .locator('select')
-    .nth(1)
-    .selectOption('d0000001-0001-4000-8000-000000000003');
-  await page.locator('select').nth(2).selectOption('casse');
+  await page.getByLabel('Produit à sortir').selectOption('d0000001-0001-4000-8000-000000000003');
+  await page.getByLabel('Raison de la sortie').selectOption('casse');
   await page.getByPlaceholder('Quantité').fill('6');
   await page.getByPlaceholder('Motif détaillé (obligatoire)').fill('Casse test');
   await page.getByRole('button', { name: 'Enregistrer la sortie' }).click();

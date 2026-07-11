@@ -178,7 +178,8 @@ test('chaîne ledger complète : réception → vente → retour → sortie → 
   await page.getByRole('button', { name: 'Stock', exact: true }).click();
   await page.getByRole('button', { name: 'Inventaire & ajustements' }).click();
   await page.getByRole('button', { name: 'Sortie manuelle' }).click();
-  await page.locator('select').nth(1).selectOption('d0000001-0001-4000-8000-000000000002');
+  await page.getByLabel('Produit à sortir').selectOption('d0000001-0001-4000-8000-000000000002');
+  await page.getByLabel('Raison de la sortie').selectOption('casse');
   await page.getByPlaceholder('Quantité').fill('2');
   await page.getByPlaceholder('Motif détaillé (obligatoire)').fill('Casse test cohérence');
   await page.getByRole('button', { name: 'Enregistrer la sortie' }).click();

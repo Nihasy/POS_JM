@@ -60,6 +60,37 @@ export function itemNumber(
 }
 
 /**
+ * Code 4 lettres depuis un libellé : accents retirés, lettres seules,
+ * majuscules, complété par X. Sert aux références produit.
+ */
+export function labelCode(label: string | null | undefined, fallback = 'GENE'): string {
+  const cleaned = (label ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z]/g, '')
+    .toUpperCase();
+  if (!cleaned) return fallback;
+  return cleaned.slice(0, 4).padEnd(4, 'X');
+}
+
+/**
+ * Référence article suggérée : catégorie + nom court + séquence.
+ *
+ * @example
+ * buildItemReference('Torches', 'Lampe frontale', 12) // → "JIA-TORC-LAMP-012"
+ * buildItemReference(null, 'Visseuse', 3)             // → "JIA-GENE-VISS-003"
+ */
+export function buildItemReference(
+  categoryName: string | null | undefined,
+  shortName: string,
+  sequence: number
+): string {
+  return `JIA-${labelCode(categoryName)}-${labelCode(shortName, 'PROD')}-${String(
+    sequence
+  ).padStart(3, '0')}`;
+}
+
+/**
  * Codes catégorie pour la génération des numéros d'article.
  */
 export const CATEGORY_CODES: Record<string, string> = {

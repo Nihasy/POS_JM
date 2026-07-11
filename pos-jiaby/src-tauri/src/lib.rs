@@ -135,6 +135,12 @@ pub fn run() {
             sql: include_str!("../../src/core/db/migrations/001_init.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 2,
+            description: "Fournisseur habituel du produit (items.supplier_id)",
+            sql: include_str!("../../src/core/db/migrations/002_item_supplier.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let mut builder = tauri::Builder::default();

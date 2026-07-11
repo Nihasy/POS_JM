@@ -5,7 +5,26 @@ import {
   returnNumber,
   receivingNumber,
   itemNumber,
+  labelCode,
+  buildItemReference,
 } from '../../src/core/domain/numbering';
+
+describe('labelCode / buildItemReference', () => {
+  it('code 4 lettres, accents retirés, complété par X', () => {
+    expect(labelCode('Torches')).toBe('TORC');
+    expect(labelCode('Électricité')).toBe('ELEC');
+    expect(labelCode('TV')).toBe('TVXX');
+    expect(labelCode('')).toBe('GENE');
+    expect(labelCode(null)).toBe('GENE');
+    expect(labelCode('Câbles 2,5mm²')).toBe('CABL');
+  });
+
+  it('référence = catégorie + nom court + séquence', () => {
+    expect(buildItemReference('Torches', 'Lampe frontale', 12)).toBe('JIA-TORC-LAMP-012');
+    expect(buildItemReference(null, 'Visseuse', 3)).toBe('JIA-GENE-VISS-003');
+    expect(buildItemReference('Électricité', 'Prise TV', 137)).toBe('JIA-ELEC-PRIS-137');
+  });
+});
 
 describe('saleNumber', () => {
   it('V-2026-00001', () => {
