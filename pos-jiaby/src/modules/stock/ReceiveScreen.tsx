@@ -33,16 +33,13 @@ export function ReceiveScreen({ items, suppliers, stockLevels, onReceive }: Rece
   const [supplierId, setSupplierId] = useState<string>('');
   const [lotRef, setLotRef] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [selectedItemId, setSelectedItemId] = useState('');
+  const [search, setSearch] = useState('');
 
-  const addLine = () => {
-    const item = items.find((i) => i.id === selectedItemId);
-    if (!item) return;
-
+  const addLine = (item: Item) => {
     const stockQty = stockLevels.get(item.id) ?? 0;
 
-    setLines([
-      ...lines,
+    setLines((prev) => [
+      ...prev,
       {
         itemId: item.id,
         itemName: item.name,
@@ -58,7 +55,49 @@ export function ReceiveScreen({ items, suppliers, stockLevels, onReceive }: Rece
         unitCost: item.cost_price,
       },
     ]);
-    setSelectedItemId('');
+    setSearch('');
+  };
+
+  // Recherche par mot-clé (nom, nom court) ou référence — produits du
+  // fournisseur sélectionné en tête, puis tri par référence.
+  const searchResults = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return [];
+    return items
+      .filter(
+        (i) =>
+          i.deleted === 0 &&
+          !lines.some((l) => l.itemId === i.id) &&
+          (i.name.toLowerCase().includes(q) ||
+            i.short_name.toLowerCase().includes(q) ||
+            i.item_number.toLowerCase().includes(q))
+      )
+      .sort((a, b) => {
+        if (supplierId) {
+          const aSup = a.supplier_id === supplierId ? 0 : 1;
+          const bSup = b.supplier_id === supplierId ? 0 : 1;
+          if (aSup !== bSup) return aSup - bSup;
+        }
+        return a.item_number.localeCompare(b.item_number);
+      })
+      .slice(0, 8);
+  }, [items, lines, search, supplierId]);
+
+  // Douchette / référence exacte + Entrée → ligne ajoutée directement
+  const handleSearchEnter = () => {
+    const q = search.trim().toLowerCase();
+    if (!q) return;
+    const exact = items.find(
+      (i) =>
+        i.deleted === 0 &&
+        !lines.some((l) => l.itemId === i.id) &&
+        i.item_number.toLowerCase() === q
+    );
+    if (exact) {
+      addLine(exact);
+    } else if (searchResults.length === 1) {
+      addLine(searchResults[0]!);
+    }
   };
 
   const updateLine = (index: number, field: keyof ReceiveLineInput, value: number | string) => {
@@ -131,57 +170,54 @@ export function ReceiveScreen({ items, suppliers, stockLevels, onReceive }: Rece
         </div>
       </div>
 
-      {/* Ajout ligne — les produits du fournisseur choisi en premier,
-          triés par référence */}
-      <div className="mb-4 flex gap-2">
-        <select
-          className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm"
-          aria-label="Ajouter un produit"
-          value={selectedItemId}
-          onChange={(e) => setSelectedItemId(e.target.value)}
-        >
-          <option value="">— Ajouter un produit —</option>
-          {(() => {
-            const available = items
-              .filter((i) => i.deleted === 0 && !lines.some((l) => l.itemId === i.id))
-              .sort((a, b) => a.item_number.localeCompare(b.item_number));
-            const ofSupplier = supplierId
-              ? available.filter((i) => i.supplier_id === supplierId)
-              : [];
-            const others = supplierId
-              ? available.filter((i) => i.supplier_id !== supplierId)
-              : available;
-            return (
-              <>
-                {ofSupplier.length > 0 && (
-                  <optgroup label="Produits de ce fournisseur">
-                    {ofSupplier.map((item) => (
-                      <option key={item.id} value={item.id} title={item.item_number}>
+      {/* Ajout ligne — recherche par mot-clé ou référence (douchette :
+          référence exacte + Entrée = ligne ajoutée) */}
+      <div className="mb-4">
+        <input
+          className="w-full rounded-lg border border-gray-300 bg-carte px-4 py-3 text-base text-encre placeholder:text-encre-2 focus:border-neutre focus:outline-none"
+          aria-label="Rechercher un produit à réceptionner"
+          placeholder="Rechercher un produit à réceptionner (nom, référence) ou scanner…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSearchEnter()}
+        />
+        {search.trim() !== '' && (
+          <div className="mt-1 max-h-56 overflow-y-auto rounded-lg border border-gray-200 bg-carte shadow-sm">
+            {searchResults.length === 0 ? (
+              <p className="px-4 py-3 text-sm text-encre-2">
+                Aucun produit trouvé (ou déjà dans la réception).
+              </p>
+            ) : (
+              searchResults.map((item) => {
+                const ofSupplier = supplierId && item.supplier_id === supplierId;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => addLine(item)}
+                    className="flex w-full items-center justify-between gap-3 border-b border-gray-100 px-4 py-2.5 text-left last:border-b-0 hover:bg-blue-50 touch-target"
+                  >
+                    <span className="min-w-0">
+                      <span className="font-mono text-xs text-encre-2">
+                        {item.item_number}
+                      </span>
+                      <span className="ml-2 text-sm font-medium text-encre">
                         {item.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                {others.length > 0 && (
-                  <optgroup label={ofSupplier.length > 0 ? 'Autres produits' : 'Produits'}>
-                    {others.map((item) => (
-                      <option key={item.id} value={item.id} title={item.item_number}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </>
-            );
-          })()}
-        </select>
-        <button
-          onClick={addLine}
-          disabled={!selectedItemId}
-          className="rounded-lg bg-neutre px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 touch-target"
-        >
-          + Ajouter
-        </button>
+                      </span>
+                      {ofSupplier && (
+                        <span className="ml-2 rounded bg-blue-100 px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase text-neutre">
+                          Ce fournisseur
+                        </span>
+                      )}
+                    </span>
+                    <span className="shrink-0 font-mono text-xs text-encre-2">
+                      Stock: {formatQty(stockLevels.get(item.id) ?? 0)} {item.unit_name}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        )}
       </div>
 
       {/* Lignes de réception */}

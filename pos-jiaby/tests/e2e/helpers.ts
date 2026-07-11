@@ -34,6 +34,19 @@ export async function addToCart(page: Page, searchTerm: string, cardText: string
   await page.getByRole('button', { name: new RegExp(cardText) }).first().click();
 }
 
+/** Ajoute une ligne de réception via la recherche (mot-clé ou référence). */
+export async function addReceiveLine(
+  page: Page,
+  query: string,
+  resultText: string | RegExp
+): Promise<void> {
+  await page.getByLabel('Rechercher un produit à réceptionner').fill(query);
+  await page
+    .getByRole('button', { name: resultText })
+    .first()
+    .click();
+}
+
 /** Ferme la facture (ticket de caisse) affichée après un encaissement. */
 export async function closeTicket(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Fermer', exact: true }).click();

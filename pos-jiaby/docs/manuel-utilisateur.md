@@ -244,7 +244,7 @@ Après chaque réception, l'application **propose d'imprimer les étiquettes** d
 Pour enregistrer une arrivée fournisseur (lot d'import, achat grossiste) :
 
 1. Choisissez le **fournisseur** (facultatif) et saisissez la **réf. du lot** (ex. `IMPORT-CN-07`).
-2. Ajoutez les produits un à un (menu « — Ajouter un produit — » → **+ Ajouter**).
+2. Ajoutez les produits via la **recherche** : tapez un mot-clé (nom) ou une **référence**, cliquez sur le résultat — chaque résultat montre la référence, le stock actuel, et un badge « Ce fournisseur » pour les produits du fournisseur choisi (affichés en premier). **À la douchette** : scannez l'étiquette (référence exacte + Entrée), la ligne s'ajoute directement — idéal pour pointer un arrivage article par article.
 3. Pour chaque ligne, saisissez :
    - **Cartons** : nombre de conditionnements entiers (convertis via la qté/pack du produit). Si le produit n'a pas de conditionnement défini, cette colonne affiche « — » ;
    - **Unités** : unités en vrac en plus des cartons (décimales acceptées uniquement pour m et kg) ;

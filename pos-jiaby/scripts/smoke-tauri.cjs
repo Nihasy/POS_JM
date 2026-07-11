@@ -77,8 +77,8 @@ async function main() {
   console.log('4. Réception 2 cartons + 5 unités…');
   await page.getByRole('button', { name: 'Stock', exact: true }).click();
   await page.getByPlaceholder('IMPORT-CN-01…').fill('LOT-SMOKE');
-  await page.locator('select').nth(1).selectOption({ label: 'Produit Smoke' });
-  await page.getByRole('button', { name: '+ Ajouter' }).click();
+  await page.getByLabel('Rechercher un produit à réceptionner').fill('Smoke');
+  await page.getByRole('button', { name: /Produit Smoke/ }).first().click();
   const row = page.getByRole('row').filter({ hasText: 'Produit Smoke' });
   const rowNums = row.locator('input[type="number"]');
   await rowNums.nth(0).fill('2'); // cartons ×10

@@ -1,5 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
-import { login, openSession, addToCart, payCash, closeTicket } from './helpers';
+import {
+  login,
+  openSession,
+  addToCart,
+  payCash,
+  closeTicket,
+  addReceiveLine,
+} from './helpers';
 
 /**
  * Tests de cohérence « hard » : scénarios adversariaux et vérifications
@@ -148,8 +155,7 @@ test('chaîne ledger complète : réception → vente → retour → sortie → 
 
   // Réception : 2 cartons de 24 + 2 unités de torches → 48 + 50 = 98
   await page.getByRole('button', { name: 'Stock', exact: true }).click();
-  await page.locator('select').nth(1).selectOption({ label: 'Torche LED rechargeable' });
-  await page.getByRole('button', { name: '+ Ajouter' }).click();
+  await addReceiveLine(page, 'torche', /Torche LED rechargeable/);
   await page.getByLabel('Cartons Torche LED rechargeable').fill('2');
   await page.getByLabel('Unités Torche LED rechargeable').fill('2');
   await page.getByRole('button', { name: 'Valider la réception' }).click();

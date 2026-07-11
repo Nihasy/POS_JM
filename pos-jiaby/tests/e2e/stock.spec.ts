@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login } from './helpers';
+import { login, addReceiveLine } from './helpers';
 
 /**
  * Stock : inventaire avec écarts (S29), sortie manuelle motivée,
@@ -65,8 +65,7 @@ test('sortie manuelle motivée → stock décrémenté', async ({ page }) => {
 test('réception : total unités cohérent quand cartons et unités changent', async ({ page }) => {
   await login(page);
   await page.getByRole('button', { name: 'Stock', exact: true }).click();
-  await page.locator('select').nth(1).selectOption({ label: 'Torche LED rechargeable' });
-  await page.getByRole('button', { name: '+ Ajouter' }).click();
+  await addReceiveLine(page, 'torche', /Torche LED rechargeable/);
 
   const row = page.getByRole('row').filter({ hasText: 'Torche LED rechargeable' });
   const totalCell = row.locator('td').nth(3);
@@ -99,8 +98,10 @@ test('réception multi-pack : 2 cartons de 24 + 2 unités → stock +50, PMP rec
 
   await page.locator('select').first().selectOption({ label: 'Import CN Guangzhou' });
   await page.getByPlaceholder('IMPORT-CN-01…').fill('LOT-TEST-01');
-  await page.locator('select').nth(1).selectOption({ label: 'Torche LED rechargeable' });
-  await page.getByRole('button', { name: '+ Ajouter' }).click();
+  // Recherche par RÉFÉRENCE : le produit du fournisseur est signalé
+  await page.getByLabel('Rechercher un produit à réceptionner').fill('JIA-TORC');
+  await expect(page.getByText('Ce fournisseur')).toHaveCount(0); // torche sans fournisseur
+  await page.getByRole('button', { name: /Torche LED rechargeable/ }).first().click();
 
   const row = page.getByRole('row').filter({ hasText: 'Torche LED rechargeable' });
   const inputs = row.locator('input[type="number"]');
