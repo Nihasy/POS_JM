@@ -49,13 +49,28 @@ export function ReportsScreen({
   const [days, setDays] = useState(30);
   const [exportMsg, setExportMsg] = useState<string | null>(null);
 
+  // Dates précises (Du … au …) — actives quand la période « Dates
+  // précises » est sélectionnée ; sinon les périodes rapides s'appliquent.
+  const [customRange, setCustomRange] = useState(false);
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const [dateFrom, setDateFrom] = useState(todayIso);
+  const [dateTo, setDateTo] = useState(todayIso);
+
   // Filtrer les ventes sur la période
   const filteredSales = useMemo(() => {
+    if (customRange) {
+      // created_at SQLite : « YYYY-MM-DD HH:MM:SS » — bornes inclusives
+      const from = `${dateFrom || todayIso} 00:00:00`;
+      const to = `${dateTo || dateFrom || todayIso} 23:59:59`;
+      return sales.filter(
+        (s) => s.status === 'COMPLETED' && s.created_at >= from && s.created_at <= to
+      );
+    }
     const since = daysAgo(days).toISOString();
     return sales.filter(
       (s) => s.created_at >= since && s.status === 'COMPLETED'
     );
-  }, [sales, days]);
+  }, [sales, days, customRange, dateFrom, dateTo, todayIso]);
 
   const totalCA = useMemo(
     () => filteredSales.reduce((s, sale) => s + sale.total, 0),
@@ -157,19 +172,56 @@ export function ReportsScreen({
 
   return (
     <div className="flex h-full flex-col p-4">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h2 className="text-xl font-bold text-encre">Rapports</h2>
-        {/* Filtre période */}
-        <select
-          className="rounded border border-gray-300 px-3 py-2 text-sm"
-          value={days}
-          onChange={(e) => setDays(Number(e.target.value))}
-        >
-          <option value={1}>Aujourd'hui</option>
-          <option value={7}>7 jours</option>
-          <option value={30}>30 jours</option>
-          <option value={90}>90 jours</option>
-        </select>
+        {/* Filtre période : présélections + dates précises */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            className="rounded border border-gray-300 px-3 py-2 text-sm"
+            aria-label="Période"
+            value={customRange ? 'custom' : String(days)}
+            onChange={(e) => {
+              if (e.target.value === 'custom') {
+                setCustomRange(true);
+              } else {
+                setCustomRange(false);
+                setDays(Number(e.target.value));
+              }
+            }}
+          >
+            <option value="1">Aujourd'hui</option>
+            <option value="7">7 jours</option>
+            <option value="30">30 jours</option>
+            <option value="90">90 jours</option>
+            <option value="custom">Dates précises…</option>
+          </select>
+          {customRange && (
+            <>
+              <label className="flex items-center gap-1 text-sm text-encre-2">
+                Du
+                <input
+                  className="rounded border border-gray-300 px-2 py-1.5 text-sm"
+                  type="date"
+                  aria-label="Date de début"
+                  max={dateTo || undefined}
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                />
+              </label>
+              <label className="flex items-center gap-1 text-sm text-encre-2">
+                au
+                <input
+                  className="rounded border border-gray-300 px-2 py-1.5 text-sm"
+                  type="date"
+                  aria-label="Date de fin"
+                  min={dateFrom || undefined}
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                />
+              </label>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Onglets rapports */}
@@ -249,7 +301,10 @@ export function ReportsScreen({
         {/* Synthèse CA */}
         {report === 'synthese_ca' && (
           <div className="text-center py-8">
-            <p className="text-encre-2 mb-2">Chiffre d'affaires ({days} jours)</p>
+            <p className="text-encre-2 mb-2">
+              Chiffre d'affaires{' '}
+              {customRange ? `du ${dateFrom} au ${dateTo || dateFrom}` : `(${days} jours)`}
+            </p>
             <MontantAr value={totalCA} total />
             <p className="text-xs text-encre-2 mt-4">
               {filteredSales.length} vente{filteredSales.length > 1 ? 's' : ''}

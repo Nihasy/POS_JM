@@ -307,7 +307,7 @@ La session est archivée avec l'attendu, le compté et l'écart. Il faudra rouvr
 
 ## 9. Les Rapports
 
-Écran **Rapports**. Filtre de période en haut à droite : **Aujourd'hui / 7 jours / 30 jours / 90 jours**. Le bouton **Export CSV** télécharge le rapport affiché (ouvrable dans Excel).
+Écran **Rapports**. Filtre de période en haut à droite : **Aujourd'hui / 7 jours / 30 jours / 90 jours**, ou **Dates précises…** qui affiche deux champs **Du / au** pour choisir une plage exacte (bornes incluses — mettre la même date dans les deux champs donne le rapport d'une seule journée). Le bouton **Export CSV** exporte le rapport affiché sur la période choisie : sous l'application de bureau, le fichier est enregistré dans votre dossier **Téléchargements** (chemin affiché en confirmation) ; il s'ouvre dans Excel avec les accents corrects.
 
 | Rapport | Contenu |
 |---|---|

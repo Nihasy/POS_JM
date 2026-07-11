@@ -77,6 +77,34 @@ test('vélocité : ventes/jour et jours de stock (S34)', async ({ page }) => {
   await expect(row).toContainText('149'); // stock restant après la vente
 });
 
+test('filtre par dates précises : la vente du jour entre et sort de la période', async ({
+  page,
+}) => {
+  await login(page);
+  await openSession(page, 50000);
+  await addToCart(page, 'Ampoule', 'Ampoule 9W');
+  await payCash(page, 3000);
+  await expect(page.getByText(/enregistrée/)).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole('button', { name: 'Rapports', exact: true }).click();
+
+  // Dates précises — par défaut aujourd'hui → la vente est comptée
+  await page.getByLabel('Période').selectOption('custom');
+  const today = new Date().toISOString().slice(0, 10);
+  await expect(page.getByLabel('Date de début')).toHaveValue(today);
+  await expect(page.getByText('1 vente', { exact: true })).toBeVisible();
+  await expect(page.getByText('3 000 Ar').first()).toBeVisible();
+
+  // Une plage passée sans vente → 0 vente
+  await page.getByLabel('Date de début').fill('2020-01-01');
+  await page.getByLabel('Date de fin').fill('2020-01-31');
+  await expect(page.getByText('0 vente', { exact: true })).toBeVisible();
+
+  // Retour à une présélection → la vente réapparaît
+  await page.getByLabel('Période').selectOption('7');
+  await expect(page.getByText('1 vente', { exact: true })).toBeVisible();
+});
+
 test('export CSV : fichier téléchargé avec confirmation', async ({ page }) => {
   await login(page);
   await openSession(page, 50000);
