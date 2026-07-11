@@ -276,7 +276,14 @@ export function App() {
     const state = useCartStore.getState();
     if (state.lines.length === 0) return;
     try {
-      const number = await suspendSaleTx(db, state.lines, state.customerId, user.id);
+      const number = await suspendSaleTx(
+        db,
+        state.lines,
+        state.customerId,
+        user.id,
+        state.discountGlobalPercent,
+        state.discountGlobalAmount
+      );
       cartStore.clearCart();
       notify(`Panier suspendu (${number}).`);
       await refresh();
@@ -326,6 +333,11 @@ export function App() {
           result.customerId,
           customer ? `${customer.last_name} ${customer.first_name}` : null
         );
+        // La remise globale suspendue est restaurée avec le panier
+        cartStore.setGlobalDiscount(
+          result.discountGlobalPercent,
+          result.discountGlobalAmount
+        );
         // Un devis rappelé sera converti en vente à l'encaissement (S23)
         setQuoteToConvert(result.isQuote ? saleId : null);
         setShowRecall(false);
@@ -346,7 +358,7 @@ export function App() {
     async (params: {
       sale: import('@/core/domain/types').Sale;
       lines: { item: import('@/core/domain/types').SaleItem; quantity: number }[];
-      refundMethod: 'ESPECES' | 'MVOLA';
+      refundMethod: 'ESPECES' | 'MVOLA' | 'CREDIT';
       refundReference: string | null;
       adminPin: string;
     }) => {

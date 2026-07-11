@@ -316,7 +316,8 @@ export async function finalizeSaleTx(
     }
   }
 
-  // Contrôle plafond crédit (S17–S20)
+  // Contrôle plafond crédit (S17–S20) — sauf retours : un avoir sur
+  // le compte client DIMINUE la dette, le plafond n'a pas de sens.
   const creditAmount = params.payments
     .filter((p) => p.method === 'CREDIT')
     .reduce((s, p) => s + p.amount, 0);
@@ -330,7 +331,7 @@ export async function finalizeSaleTx(
     );
     const customer = rows[0];
     if (!customer) throw new Error('Client introuvable.');
-    if (!checkCreditLimit(customer.balance_due, customer.credit_limit, creditAmount)) {
+    if (!isReturn && !checkCreditLimit(customer.balance_due, customer.credit_limit, creditAmount)) {
       throw new Error(
         `Plafond crédit dépassé : solde ${customer.balance_due} + ${creditAmount} > ${customer.credit_limit} Ar.`
       );
@@ -499,18 +500,29 @@ export async function suspendSaleTx(
   db: Db,
   lines: CartLine[],
   customerId: UUID | null,
-  userId: UUID
+  userId: UUID,
+  discountGlobalPercent: number | null = null,
+  discountGlobalAmount: number | null = null
 ): Promise<string> {
-  const result = prepareSuspend(lines, customerId, userId);
+  const result = prepareSuspend(
+    lines,
+    customerId,
+    userId,
+    discountGlobalPercent,
+    discountGlobalAmount
+  );
   if (result.errors.length > 0) throw new Error(result.errors.join(' ; '));
 
   const saleNumber = await nextNumber(db, 'P');
 
   await withTransaction(db, async (tx) => {
     await tx.execute(
-      `INSERT INTO sales (id, sale_number, customer_id, user_id, status, subtotal, total, is_quote, is_return)
-       VALUES (?, ?, ?, ?, 'SUSPENDED', ?, ?, 0, 0)`,
-      [result.sale.id, saleNumber, customerId, userId, result.sale.subtotal, result.sale.total]
+      `INSERT INTO sales (id, sale_number, customer_id, user_id, status, subtotal,
+        discount_global_percent, discount_global_amount, total, is_quote, is_return)
+       VALUES (?, ?, ?, ?, 'SUSPENDED', ?, ?, ?, ?, 0, 0)`,
+      [result.sale.id, saleNumber, customerId, userId, result.sale.subtotal,
+       result.sale.discountGlobalPercent, result.sale.discountGlobalAmount,
+       result.sale.total]
     );
     for (const item of result.items) {
       await tx.execute(
@@ -558,7 +570,14 @@ export async function listSuspendedSales(db: Db): Promise<SuspendedSale[]> {
 export async function recallSaleTx(
   db: Db,
   saleId: UUID
-): Promise<{ lines: CartLine[]; customerId: UUID | null; isQuote: boolean; saleNumber: string }> {
+): Promise<{
+  lines: CartLine[];
+  customerId: UUID | null;
+  isQuote: boolean;
+  saleNumber: string;
+  discountGlobalPercent: number | null;
+  discountGlobalAmount: number | null;
+}> {
   const sales = await db.select<Sale>('SELECT * FROM sales WHERE id = ?', [saleId]);
   const sale = sales[0];
   if (!sale || sale.status !== 'SUSPENDED') {
@@ -594,6 +613,9 @@ export async function recallSaleTx(
     customerId: sale.customer_id,
     isQuote: sale.is_quote === 1,
     saleNumber: sale.sale_number,
+    // La remise globale suspendue est restaurée au rappel
+    discountGlobalPercent: sale.discount_global_percent,
+    discountGlobalAmount: sale.discount_global_amount,
   };
 }
 
@@ -621,13 +643,17 @@ export async function findSaleByNumber(
  * Retour (partiel ou total) sur une vente d'origine.
  * Remboursement au prix appliqué d'origine remises comprises,
  * ledger positif, avoir R-année-NNNNN (S26–S27).
+ *
+ * Garde-fous : impossible de retourner plus que le restant (les
+ * retours précédents sur la même vente sont décomptés) ; le
+ * remboursement CREDIT diminue le solde dû du client.
  */
 export async function returnSaleTx(
   db: Db,
   params: {
     originalSale: Sale;
     returnLines: { item: SaleItem; quantity: number }[];
-    refundMethod: 'ESPECES' | 'MVOLA';
+    refundMethod: 'ESPECES' | 'MVOLA' | 'CREDIT';
     refundReference: string | null;
     userId: UUID;
   }
@@ -635,10 +661,32 @@ export async function returnSaleTx(
   if (params.returnLines.length === 0) {
     throw new Error('Aucune ligne sélectionnée pour le retour.');
   }
+  if (params.refundMethod === 'CREDIT' && !params.originalSale.customer_id) {
+    throw new Error('Avoir sur compte client : la vente d’origine n’a pas de client.');
+  }
+
+  // Quantités déjà retournées sur cette vente (anti sur-retour)
+  const prevRows = await db.select<{ item_id: string; qty: number }>(
+    `SELECT si.item_id, COALESCE(SUM(si.quantity), 0) as qty
+     FROM sales_items si
+     JOIN sales s ON s.id = si.sale_id
+     WHERE s.original_sale_id = ? AND s.is_return = 1 AND s.status = 'COMPLETED'
+     GROUP BY si.item_id`,
+    [params.originalSale.id]
+  );
+  const alreadyReturned = new Map(prevRows.map((r) => [r.item_id, r.qty]));
 
   const lines: CartLine[] = params.returnLines.map(({ item, quantity }) => {
+    const remaining = item.quantity - (alreadyReturned.get(item.item_id) ?? 0);
     if (quantity <= 0 || quantity > item.quantity) {
       throw new Error(`Quantité de retour invalide pour ${item.name_snapshot}.`);
+    }
+    if (quantity > remaining) {
+      throw new Error(
+        `Retour impossible pour ${item.name_snapshot} : déjà retourné ${
+          item.quantity - remaining
+        }, restant ${Math.max(0, remaining)}.`
+      );
     }
     // Prix appliqué d'origine, remises comprises : total au prorata
     const lineTotal = Math.round((item.line_total / item.quantity) * quantity);

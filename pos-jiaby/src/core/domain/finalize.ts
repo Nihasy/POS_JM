@@ -248,7 +248,9 @@ export function checkStock(
 export function prepareSuspend(
   cartLines: CartLine[],
   customerId: UUID | null,
-  userId: UUID
+  userId: UUID,
+  discountGlobalPercent: number | null = null,
+  discountGlobalAmount: number | null = null
 ): {
   sale: {
     id: UUID;
@@ -256,6 +258,8 @@ export function prepareSuspend(
     userId: UUID;
     status: 'SUSPENDED';
     subtotal: number;
+    discountGlobalPercent: number | null;
+    discountGlobalAmount: number | null;
     total: number;
   };
   items: FinalizeResult['items'];
@@ -267,7 +271,13 @@ export function prepareSuspend(
     errors.push('Impossible de suspendre un panier vide.');
   }
 
-  const total = cartLines.reduce((sum, line) => sum + line.lineTotal, 0);
+  // La remise globale fait partie du panier suspendu (S21) :
+  // elle doit être conservée et restaurée au rappel.
+  const { subtotal, total } = saleTotal(
+    cartLines.map((l) => l.lineTotal),
+    discountGlobalPercent,
+    discountGlobalAmount
+  );
   const saleId = crypto.randomUUID();
 
   return {
@@ -276,7 +286,9 @@ export function prepareSuspend(
       customerId,
       userId,
       status: 'SUSPENDED',
-      subtotal: total,
+      subtotal,
+      discountGlobalPercent,
+      discountGlobalAmount,
       total,
     },
     items: cartLines.map((line) => ({

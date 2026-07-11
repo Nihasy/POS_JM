@@ -11,11 +11,12 @@ interface ReturnModalProps {
   /**
    * Exécute le retour. `adminPin` est vérifié côté service :
    * les retours exigent un PIN admin (S26).
+   * CREDIT = avoir sur le compte client (diminue son solde dû).
    */
   onReturn: (params: {
     sale: Sale;
     lines: { item: SaleItem; quantity: number }[];
-    refundMethod: 'ESPECES' | 'MVOLA';
+    refundMethod: 'ESPECES' | 'MVOLA' | 'CREDIT';
     refundReference: string | null;
     adminPin: string;
   }) => Promise<void>;
@@ -29,7 +30,7 @@ export function ReturnModal({ open, onClose, onSearchSale, onReturn }: ReturnMod
   const [saleNumber, setSaleNumber] = useState('');
   const [found, setFound] = useState<{ sale: Sale; items: SaleItem[] } | null>(null);
   const [quantities, setQuantities] = useState<Map<string, string>>(new Map());
-  const [refundMethod, setRefundMethod] = useState<'ESPECES' | 'MVOLA'>('ESPECES');
+  const [refundMethod, setRefundMethod] = useState<'ESPECES' | 'MVOLA' | 'CREDIT'>('ESPECES');
   const [refundRef, setRefundRef] = useState('');
   const [adminPin, setAdminPin] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +40,7 @@ export function ReturnModal({ open, onClose, onSearchSale, onReturn }: ReturnMod
     setSaleNumber('');
     setFound(null);
     setQuantities(new Map());
+    setRefundMethod('ESPECES');
     setRefundRef('');
     setAdminPin('');
     setError(null);
@@ -62,6 +64,7 @@ export function ReturnModal({ open, onClose, onSearchSale, onReturn }: ReturnMod
       setFound(null);
       return;
     }
+    setRefundMethod('ESPECES');
     setFound(result);
   };
 
@@ -167,20 +170,38 @@ export function ReturnModal({ open, onClose, onSearchSale, onReturn }: ReturnMod
               </div>
             )}
 
-            {/* Méthode de remboursement */}
+            {/* Méthode de remboursement — l'avoir sur compte n'existe
+                que si la vente d'origine a un client associé */}
             <div className="flex gap-1">
-              {(['ESPECES', 'MVOLA'] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setRefundMethod(m)}
-                  className={`flex-1 rounded px-3 py-2 text-sm font-medium touch-target ${
-                    refundMethod === m ? 'bg-especes text-white' : 'bg-gray-100 text-encre-2'
-                  }`}
-                >
-                  {m === 'ESPECES' ? 'Espèces' : 'MVola'}
-                </button>
-              ))}
+              {(
+                [
+                  { m: 'ESPECES' as const, label: 'Espèces', show: true },
+                  { m: 'MVOLA' as const, label: 'MVola', show: true },
+                  {
+                    m: 'CREDIT' as const,
+                    label: 'Avoir client',
+                    show: found.sale.customer_id !== null,
+                  },
+                ] as const
+              )
+                .filter((o) => o.show)
+                .map((o) => (
+                  <button
+                    key={o.m}
+                    onClick={() => setRefundMethod(o.m)}
+                    className={`flex-1 rounded px-3 py-2 text-sm font-medium touch-target ${
+                      refundMethod === o.m ? 'bg-especes text-white' : 'bg-gray-100 text-encre-2'
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
             </div>
+            {refundMethod === 'CREDIT' && (
+              <p className="text-xs text-encre-2">
+                L'avoir diminue le solde dû du client (aucune sortie d'espèces).
+              </p>
+            )}
             {refundMethod === 'MVOLA' && (
               <input
                 className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-neutre focus:outline-none"
