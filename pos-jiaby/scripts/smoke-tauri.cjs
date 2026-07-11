@@ -35,9 +35,15 @@ async function main() {
 
   // ── 1. Login (seed au premier démarrage : PBKDF2/bcrypt, patient) ──
   console.log('1. Login PIN 1234…');
-  await expect(page.getByRole('button', { name: 'Se connecter' })).toBeVisible({
-    timeout: 30_000,
-  });
+  // Tolérant : si une session est déjà ouverte (test manuel en cours),
+  // on repart de l'écran de connexion via Déconnexion.
+  const loginBtn = page.getByRole('button', { name: 'Se connecter' });
+  const logoutBtn = page.getByRole('button', { name: 'Déconnexion' });
+  await expect(loginBtn.or(logoutBtn).first()).toBeVisible({ timeout: 30_000 });
+  if (await logoutBtn.isVisible()) {
+    await logoutBtn.click();
+  }
+  await expect(loginBtn).toBeVisible({ timeout: 15_000 });
   await typeDigits(page, '1234');
   await page.getByRole('button', { name: 'Se connecter' }).click();
   await expect(page.getByRole('button', { name: 'Catalogue' })).toBeVisible({
@@ -99,7 +105,35 @@ async function main() {
   await expect(page.getByText(/Vente V-\d{4}-00001 enregistrée/)).toBeVisible({
     timeout: 15_000,
   });
-  console.log('   ✓ vente V-…-00001, rendu 2 000 Ar');
+  // Facture affichée → fermer pour continuer
+  await expect(page.getByText(/Ticket V-\d{4}-00001/)).toBeVisible();
+  await page.getByRole('button', { name: 'Fermer', exact: true }).click();
+  console.log('   ✓ vente V-…-00001, rendu 2 000 Ar, facture affichée');
+
+  // ── 5b. Import CSV du catalogue (transaction Rust massive) ───────
+  console.log('5b. Import CSV de 2 produits…');
+  await page.getByRole('button', { name: 'Catalogue', exact: true }).click();
+  await page.getByRole('button', { name: 'Import CSV' }).click();
+  await page.getByLabel('Fichier CSV').setInputFiles({
+    name: 'smoke.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(
+      'nom;categorie;fournisseur;prix_detail;cout;stock_initial\n' +
+        'Import Smoke A;Outillage;Fournisseur Smoke;12000;8000;7\n' +
+        'Import Smoke B;Outillage;Fournisseur Smoke;9000;6000;3\n',
+      'utf-8'
+    ),
+  });
+  await page.getByRole('button', { name: 'Importer 2 produit(s)' }).click();
+  await expect(page.getByText(/2.*produit\(s\) importé\(s\)/)).toBeVisible({
+    timeout: 20_000,
+  });
+  await page.getByRole('button', { name: 'Fermer', exact: true }).click();
+  await page.getByPlaceholder(/Rechercher un produit/).fill('Import Smoke A');
+  await expect(
+    page.getByRole('button', { name: /Modifier Import Smoke A/ })
+  ).toContainText('Stock: 7');
+  console.log('   ✓ import CSV : produits + stock initial + fournisseur créés');
 
   // ── 6. Stock à jour (ledger) : 25 − 2 = 23 ───────────────────────
   await page.getByPlaceholder(/Rechercher/).first().fill('Smoke');

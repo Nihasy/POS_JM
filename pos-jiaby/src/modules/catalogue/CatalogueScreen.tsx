@@ -64,6 +64,7 @@ export function CatalogueScreen({
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Filtrer les résultats
   const filtered = useMemo(() => {
@@ -80,11 +81,13 @@ export function CatalogueScreen({
 
   const handleCreate = useCallback(() => {
     setSelectedItem(null);
+    setSaveError(null);
     setShowForm(true);
   }, []);
 
   const handleEdit = useCallback((item: Item) => {
     setSelectedItem(item);
+    setSaveError(null);
     setShowForm(true);
   }, []);
 
@@ -92,13 +95,19 @@ export function CatalogueScreen({
     async (formData: Parameters<typeof getFormData>[0]) => {
       setSaving(true);
       const data = getFormData(formData);
-      if (selectedItem) {
-        await onUpdateItem(selectedItem.id, data);
-      } else {
-        await onCreateItem(data);
+      try {
+        if (selectedItem) {
+          await onUpdateItem(selectedItem.id, data);
+        } else {
+          await onCreateItem(data);
+        }
+        setSaveError(null);
+        setShowForm(false);
+      } catch (e) {
+        // Référence en doublon, etc. : l'erreur reste visible dans la modale
+        setSaveError(e instanceof Error ? e.message : 'Erreur lors de l’enregistrement');
       }
       setSaving(false);
-      setShowForm(false);
     },
     [selectedItem, onCreateItem, onUpdateItem]
   );
@@ -280,6 +289,7 @@ export function CatalogueScreen({
           onSave={handleSave}
           onCancel={() => setShowForm(false)}
           saving={saving}
+          serverError={saveError}
         />
       </Modal>
 

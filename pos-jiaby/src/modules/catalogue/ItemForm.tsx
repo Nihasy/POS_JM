@@ -49,6 +49,8 @@ interface ItemFormProps {
   nextSeq?: number;
   /** Édition : la référence existante n'est pas modifiable. */
   isEdit?: boolean;
+  /** Erreur renvoyée par l'enregistrement (référence en doublon…). */
+  serverError?: string | null;
   onSave: (data: ItemFormData) => void;
   onCancel: () => void;
   saving?: boolean;
@@ -64,6 +66,7 @@ export function ItemForm({
   suppliers,
   nextSeq = 1,
   isEdit = false,
+  serverError = null,
   onSave,
   onCancel,
   saving = false,
@@ -376,6 +379,13 @@ export function ItemForm({
           <div className="rounded bg-atelier px-3 py-2 text-center">
             <span className="text-xs text-encre-2">Prix affiché : </span>
             <MontantAr value={Number(form.sellingPrice) || 0} />
+          </div>
+        )}
+
+        {/* Erreur serveur (référence en doublon…) */}
+        {serverError && (
+          <div className="rounded bg-red-50 p-3">
+            <p className="text-sm text-red-600">{serverError}</p>
           </div>
         )}
 
